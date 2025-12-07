@@ -138,15 +138,40 @@ cfa_server <- function(input, output, session, data) {
         fm_raw <- tryCatch(lavaan::fitMeasures(cfa_fit_object, fit.measures = fit_indices_to_get), error = function(e) NULL)
 
         if(!is.null(fm_raw)){
-            chi_val <- fm_raw["chisq.scaled"] %||% fm_raw["chisq"] %||% NA
-            df_val <- fm_raw["df.scaled"] %||% fm_raw["df"] %||% NA
-            pval_val <- fm_raw["pvalue.scaled"] %||% fm_raw["pvalue"] %||% NA
-            cfi_val <- fm_raw["cfi.robust"] %||% fm_raw["cfi.scaled"] %||% fm_raw["cfi"] %||% NA
-            tli_val <- fm_raw["tli.robust"] %||% fm_raw["tli.scaled"] %||% fm_raw["tli"] %||% NA
-            rmsea_val <- fm_raw["rmsea.robust"] %||% fm_raw["rmsea.scaled"] %||% fm_raw["rmsea"] %||% NA
-            rmsea_low <- fm_raw["rmsea.ci.lower.robust"] %||% fm_raw["rmsea.ci.lower.scaled"] %||% fm_raw["rmsea.ci.lower"] %||% NA
-            rmsea_upp <- fm_raw["rmsea.ci.upper.robust"] %||% fm_raw["rmsea.ci.upper.scaled"] %||% fm_raw["rmsea.ci.upper"] %||% NA
-            srmr_val <- fm_raw["srmr_bentler"] %||% fm_raw["srmr"] %||% NA
+            # 1. Temel İndeksler (Ki-Kare, df, p) - Her zaman Scaled öncelikli
+           chi_val <- fm_raw["chisq.scaled"] %||% fm_raw["chisq"] %||% NA
+           df_val <- fm_raw["df.scaled"] %||% fm_raw["df"] %||% NA
+           pval_val <- fm_raw["pvalue.scaled"] %||% fm_raw["pvalue"] %||% NA
+
+           # 2. SRMR Seçimi (Kategorik veride 'srmr_bentler' daha doğrudur)
+           srmr_val <- if(correlation_type == "poly") {
+              fm_raw["srmr_bentler"] %||% fm_raw["srmr"] %||% NA
+           } else {
+              fm_raw["srmr"] %||% fm_raw["srmr_bentler"] %||% NA
+           }
+
+           # 3. Uyum İndeksleri (CFI, TLI, RMSEA)
+           if (correlation_type == "poly") {
+              # --- KATEGORİK (Mplus ULSMV/WLSMV Uyumu) ---
+              # Mplus uyumu için 'scaled' değerleri esastır.
+              cfi_val   <- fm_raw["cfi.scaled"] %||% fm_raw["cfi.robust"] %||% fm_raw["cfi"] %||% NA
+              tli_val   <- fm_raw["tli.scaled"] %||% fm_raw["tli.robust"] %||% fm_raw["tli"] %||% NA
+              rmsea_val <- fm_raw["rmsea.scaled"] %||% fm_raw["rmsea.robust"] %||% fm_raw["rmsea"] %||% NA
+              
+              rmsea_low <- fm_raw["rmsea.ci.lower.scaled"] %||% fm_raw["rmsea.ci.lower.robust"] %||% fm_raw["rmsea.ci.lower"] %||% NA
+              rmsea_upp <- fm_raw["rmsea.ci.upper.scaled"] %||% fm_raw["rmsea.ci.upper.robust"] %||% fm_raw["rmsea.ci.upper"] %||% NA
+              
+           } else {
+              # --- SÜREKLİ (MLR Uyumu) ---
+              # Standart Robust analizlerde 'robust' değerleri esastır.
+              cfi_val   <- fm_raw["cfi.robust"] %||% fm_raw["cfi.scaled"] %||% fm_raw["cfi"] %||% NA
+              tli_val   <- fm_raw["tli.robust"] %||% fm_raw["tli.scaled"] %||% fm_raw["tli"] %||% NA
+              rmsea_val <- fm_raw["rmsea.robust"] %||% fm_raw["rmsea.scaled"] %||% fm_raw["rmsea"] %||% NA
+              
+              rmsea_low <- fm_raw["rmsea.ci.lower.robust"] %||% fm_raw["rmsea.ci.lower.scaled"] %||% fm_raw["rmsea.ci.lower"] %||% NA
+              rmsea_upp <- fm_raw["rmsea.ci.upper.robust"] %||% fm_raw["rmsea.ci.upper.scaled"] %||% fm_raw["rmsea.ci.upper"] %||% NA
+           }
+					
             chi_df_ratio <- if (!is.na(df_val) && df_val > 0) (chi_val / df_val) else NA
 
             fit_measures_for_table <- data.frame(

@@ -1,4 +1,4 @@
- 
+
 about_server <- function(input, output, session) {
 
   # Output for the application description
@@ -66,7 +66,7 @@ about_server <- function(input, output, session) {
         tags$li("Standardized UI language to English and improved user guidance.")
       ),
       br(),
-      p(em("Current Version: 0.3"))
+      p(em("Current Version: 0.4"))
     )
   })
 
@@ -78,9 +78,9 @@ output$citation_info_html <- renderUI({
     ),
     tags$br(),
     tags$p(
-      style = "font-family: monospace; margin-left: 20px;", 
+      style = "font-family: monospace; margin-left: 20px;",
       "Kilic, A. F. (2024). FAfA: Factor analysis for all: An R package to conduct factor analysis with RShiny application. ",
-      tags$em("Journal of Measurement and Evaluation in Education and Psychology, 15"), 
+      tags$em("Journal of Measurement and Evaluation in Education and Psychology, 15"),
 	  HTML("(4), 446&ndash;451. "),
       tags$a(href = "https://doi.org/10.21031/epod.1555805", target = "_blank", "https://doi.org/10.21031/epod.1555805")
     ),
@@ -102,7 +102,7 @@ output$citation_info_html <- renderUI({
         "  doi       = {10.21031/epod.1555805},",
         "  URL       = {https://doi.org/10.21031/epod.1555805}",
         "}",
-        sep = "\n" 
+        sep = "\n"
       )
   )
   )

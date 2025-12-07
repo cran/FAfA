@@ -1,15 +1,15 @@
-fe981152ea3b9c530e45e35a4586002f *DESCRIPTION
+bb9f179799c48ba559d557995f9eeb3e *DESCRIPTION
 b3ea8a98fe1c9dcc73e3fd548a31c6f7 *NAMESPACE
 4e4179d0747db0780481ed6ce2430f8f *NEWS.md
 f462fc5f726e0f9f0482c9a597c8c633 *R/app_config.R
 7f7f2397c8b615a9678b168f715d3298 *R/app_server.R
 84c0cc2dc66a25dfe15320c12800f777 *R/app_ui.R
 df7e0603594bff4727bbfbbfb4ae0a3b *R/globals.r
-6bf6418686623de04004106ab1d8939c *R/mod_about_server.r
+09ab564485b55d0143c47d329f6ad927 *R/mod_about_server.r
 4b8e3476450e29b6098823ab309866d3 *R/mod_about_ui.r
 c86518abc1197953f3d511209b66762f *R/mod_assumptions_server.r
 99e3b8f700739f4e7a0865d843630d01 *R/mod_assumptions_ui.R
-11151eae04e8370517379cd5bc735e6b *R/mod_cfa_server.r
+f500a54c18081bd5fb00cce44f982b0c *R/mod_cfa_server.r
 71fb52bd93719ec7587ca2eee732317f *R/mod_cfa_ui.r
 2e456d67d82e537d1b5a3fef66e543bb *R/mod_data_selection_server.r
 f64306062a98382121c3415aca60f340 *R/mod_data_selection_ui.r
@@ -29,7 +29,7 @@ bb782f50e27ff29df8ea6866861c68a9 *R/mod_reliability_ui.r
 5ecbfa3d287714a7f49ba6fa9301a7a7 *R/utils.r
 07abeddf21834fa57eba8b0a927ac775 *inst/WORDLIST
 5d6c2cee5a8c53d5552050df4642dea8 *inst/app/www/favicon.ico
-b05b8c376390e61af0de87cc1a27c59c *inst/golem-config.yml
+98752bfd1f6fafd0c570457fc95be635 *inst/golem-config.yml
 7cbb4f9380df0937cc715d097703e090 *man/run_app.Rd
 332173f20d20942c02019350ea4dcadc *tests/spelling.R
 be27b7daab4649cf2f830510382e1768 *tests/testthat.R
