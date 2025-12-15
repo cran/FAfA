@@ -1,95 +1,75 @@
 #' Data Selection UI Module
 #'
-#' Provides the user interface elements for data uploading, setting data options
-#' (like header presence), displaying a data preview, and showing summary
-#' statistics in infoBoxes.
-#'
 #' @param id A character string, the module id.
-#'
-#' @return A UI definition.
 #' @import shiny
-#' @importFrom shinydashboard box infoBoxOutput
-#' @importFrom shinycssloaders withSpinner 
+#' @import bslib
+#' @importFrom bsicons bs_icon
+#' @importFrom shinycssloaders withSpinner
 #' @noRd
 data_selection_ui <- function(id) {
-  ns <- NS(id) # Namespace function to ensure ID uniqueness
+  ns <- NS(id)
 
   tagList(
-    fluidRow(
-      # Left column for file upload and data preview
-      column(
-        width = 5, 
-        box(
-          title = "Data Upload Instructions",
-          collapsible = TRUE,
-          status = "primary", 
-          solidHeader = TRUE,
-          width = NULL, 
-          strong(
-            "Please upload your data file. Supported formats include .csv, .txt, .dat, .sav (SPSS), .xlsx, and .xls (Excel).", br(),
-            "Ensure your data is properly formatted."
-          ),
-          br(),
-          em(
-            "Regarding missing values: Please ensure they are represented as NA in your dataset. ",
-            "The application will attempt to identify and convert common missing value indicators to NA. ",
-            "Subsequent analyses will typically use listwise deletion for rows with NA values."
-          )
+    layout_columns(
+      # Sol kolon (Yükleme) 4 birim, Sağ kolon (İstatistik ve Tablo) 8 birim
+      col_widths = c(4, 8),
+
+      # --- SOL KOLON: Sadece Veri Yükleme ---
+      card(
+        card_header(
+          "Data Upload",
+          class = "bg-primary text-white",
+          bs_icon("upload")
         ),
-        box(
-          title = "Select Your Data File & Options", # Box title updated
-          collapsible = TRUE,
-          status = "success", 
-          solidHeader = TRUE,
-          width = NULL,
+        card_body(
+          markdown("
+            Please upload your data file. Supported formats: **.csv, .txt, .dat, .sav, .xlsx, .xls**.
+
+            *Ensure missing values are represented as NA.*
+            "),
           fileInput(
             ns("file1"),
             label = "Choose Data File:",
-            accept = c(
-              ".csv", ".txt", ".dat", # Text-based
-              ".sav",                 # SPSS
-              ".xlsx", ".xls"         # Excel
-            ),
-            placeholder = "Upload .csv, .txt, .dat, .sav, .xlsx, or .xls file"
+            accept = c(".csv", ".txt", ".dat", ".sav", ".xlsx", ".xls"),
+            placeholder = "No file selected"
           ),
-          # New input for asking about header row
           checkboxInput(
-            ns("has_header_checkbox"), 
-            label = "My data file has a header row (variable names in the first row)", 
-            value = TRUE # Default to TRUE, assuming headers are common
+            ns("has_header_checkbox"),
+            label = "My data has a header row",
+            value = TRUE
           ),
-          em("Uncheck this if your .csv, .dat, or .txt file does NOT contain a header row. Excel and SPSS files typically handle headers automatically."),
-          br(),br(),
-          actionButton(ns("analyze_data"), "Analyze Data", icon = icon("play-circle"))
-        ),
-        box(
-          title = "Data Preview (First 10 Rows)",
-          collapsible = TRUE,
-          status = "info", 
-          solidHeader = TRUE,
-          width = NULL,
-          tableOutput(ns("mydatatable")) %>% withSpinner(type = 8, color = "#728FCE")
+          actionButton(ns("analyze_data"), "Analyze Data", icon = icon("play"), class = "btn-success w-100")
         )
       ),
-      # Right column for displaying summary statistics using infoBoxes
-      column(
-        width = 7,
-        box(
-          title = "Summary Statistics",
-          collapsible = TRUE,
-          status = "info", 
-          solidHeader = TRUE,
-          width = NULL,
-          fluidRow(
-            infoBoxOutput(ns("n_var"), width = 6),
-            infoBoxOutput(ns("n"), width = 6)
+
+      # --- SAĞ KOLON: İstatistikler ve Önizleme ---
+      tagList(
+        # 1. Summary Statistics (Daha kompakt - Tek Satır)
+        card(
+          card_header("Summary Statistics", bs_icon("bar-chart")),
+          card_body(
+            layout_columns(
+              # Kutuları tek satıra sığdırmak için genişlikleri ayarladık (Toplam 12)
+              # Değişken ve Gözlem (3'er birim), Min/Max/Range (2'şer birim)
+              col_widths = c(3, 3, 2, 2, 2),
+              row_heights = "auto",
+              uiOutput(ns("n_var_box")),     # Variables
+              uiOutput(ns("n_obs_box")),     # Sample Size
+              uiOutput(ns("min_val_box")),   # Min
+              uiOutput(ns("max_val_box")),   # Max
+              uiOutput(ns("cat_range_box"))  # Category Range
+            )
           ),
-          fluidRow(
-            infoBoxOutput(ns("min_value"), width = 6),
-            infoBoxOutput(ns("max_value"), width = 6)
-          ),
-          fluidRow(
-            infoBoxOutput(ns("num_cat"), width = 6)
+          # Kartın gereksiz uzamasını engellemek için min-height ayarı
+          style = "min-height: 150px;"
+        ),
+
+        # 2. Data Preview (Buraya taşındı)
+        card(
+          card_header("Data Preview", bs_icon("table")),
+          card_body(
+            tableOutput(ns("mydatatable")) %>% withSpinner(type = 8, color = "#2C3E50"),
+            style = "max-height: 500px; overflow-y: auto;" # Tablo çok uzarsa scroll çıksın
           )
         )
       )

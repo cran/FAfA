@@ -1,11 +1,11 @@
 # NEWS
 
-### Version 0.3 - 2025-05-20
+### Version 0.5 - 2025-12-12
 
-This version introduces significant enhancements focused on improving application stability and adding new analytical capabilities.
+This release introduces major modules for data preprocessing and item analysis, alongside enhancements to the CFA workflow.
 
-* **Application Stability:** Greatly improved application stability and addressed various bugs.
-* **Measurement Invariance Analysis:** Added capabilities for performing Measurement Invariance Analysis.
-* **CFA Fit Index Reporting:** Refined CFA (Confirmatory Factor Analysis) fit index reporting and options.
-* **Missing Data Handling:** Enhanced mechanisms for consistently handling missing data across different modules.
-* **User Interface & Guidance:** Standardized the UI language to English and improved overall user guidance.
+* **Missing Value Module:** Added a new module for comprehensive missing data diagnostics and imputation. Users can now visualize missingness patterns and apply strategies ranging from listwise deletion to advanced imputation methods (e.g., MICE, missForest).
+* **Item Drop Out:** Introduced the "Item Drop Out" module (formerly Item-Rest) to facilitate automated item elimination strategies for optimizing scale properties and factor structures.
+* **CFA Module Updates:** Enhanced the Confirmatory Factor Analysis (CFA) module, specifically improving the "Model Builder" to allow for easier definition of covariances and model specifications.
+* **Reliability Analysis:** Added support for 
+* **Stratified Alpha** coefficient calculation to better assess reliability in multidimensional scales.

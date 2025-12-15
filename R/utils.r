@@ -1,35 +1,27 @@
-# utils.R
- 
-#' Common Utility Functions for the Factor Analysis Shiny Application
-
-# ---------------------------------------------------------------------------
-# Helper for default NULL values (coalesce)
-# ---------------------------------------------------------------------------
-#' Coalesce for NULL/NA or empty values
+#' Default Value Operator
 #'
-#' Replaces x with y if x is NULL, has zero length, or all its elements are NA.
-#' @param x The primary value.
-#' @param y The fallback value.
-#' @return x if valid, otherwise y.
-#' @noRd
+#' Helper for default NULL values (coalesce)
+#'
+#' @name op_null_or
+#' @rdname op_null_or
+#' @param x Left hand side
+#' @param y Right hand side
+#' @export
 `%||%` <- function(x, y) if (is.null(x) || length(x) == 0 || all(is.na(x))) y else x
 
-# ---------------------------------------------------------------------------
-# clean_missing_data
-# ---------------------------------------------------------------------------
 #' Clean Missing Data
-#'
-#' Handles various NA representations, converts columns to numeric, and removes
-#' rows with NAs.
+#' Handles various NA representations and optionally removes rows with NAs.
 #' @param data A data frame.
+#' @param remove_na Logical. If TRUE, removes rows with NA (listwise deletion).
 #' @return A list with `cleaned_data` (data.frame) and `removed_rows` (integer).
 #' @importFrom stats na.omit
 #' @noRd
-clean_missing_data <- function(data) {
+clean_missing_data <- function(data, remove_na = TRUE) {
   if (!is.data.frame(data)) {
     data <- as.data.frame(data)
   }
 
+  # 1. Standartlaştırma: Farklı karakterleri NA'ya çevir
   data_std_na <- as.data.frame(lapply(data, function(col_item) {
     if(is.character(col_item)) {
         col_item[col_item %in% c("", " ", "NA", "N/A", "na", "n/a", ".", "-", "?", "missing")] <- NA
@@ -38,6 +30,8 @@ clean_missing_data <- function(data) {
         char_col[char_col %in% c("", " ", "NA", "N/A", "na", "n/a", ".", "-", "?", "missing")] <- NA
         col_item <- char_col
     }
+
+    # Karışık tipler için ek kontrol
     if(is.character(col_item) || is.factor(col_item)){
         potential_na_mask <- is.na(col_item) | suppressWarnings(is.na(as.numeric(as.character(col_item))))
         col_item[potential_na_mask & !is.na(col_item) & !(as.character(col_item) %in% c("", " "))] <- NA
@@ -45,13 +39,21 @@ clean_missing_data <- function(data) {
     return(col_item)
   }))
 
+  # 2. Nümeriğe Çevirme
   data_numeric <- as.data.frame(lapply(data_std_na, function(col_item) {
       suppressWarnings(as.numeric(as.character(col_item)))
   }))
 
+  # 3. NA Silme İşlemi (Parametreye Bağlı)
   original_nrow <- nrow(data_numeric)
-  cleaned_data_final <- stats::na.omit(data_numeric)
-  removed_rows_count <- original_nrow - nrow(cleaned_data_final)
+
+  if (remove_na) {
+    cleaned_data_final <- stats::na.omit(data_numeric)
+    removed_rows_count <- original_nrow - nrow(cleaned_data_final)
+  } else {
+    cleaned_data_final <- data_numeric
+    removed_rows_count <- 0 # Silme yapılmadı
+  }
 
   return(list(
     cleaned_data = cleaned_data_final,
@@ -77,9 +79,6 @@ clean_missing_data <- function(data) {
 #' @importFrom stats na.omit lm as.formula model.matrix mahalanobis pchisq cov median cor
 #' @noRd
 assumptions <- function(x, mah_p_threshold = 0.001) { # Added mah_p_threshold argument
-  message("DEBUG: assumptions() function (USER LOGIC VERSION WITH CORRECTIONS) called.")
-nrow(a)
-  # Ensure input is a data.frame and has columns
   if (!is.data.frame(x)) {
     x <- as.data.frame(x)
   }

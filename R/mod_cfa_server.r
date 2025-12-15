@@ -1,349 +1,241 @@
-# Confirmatory Factor Analysis (CFA) Server Module
- 
-#' Coalesce for NULL/NA or empty values (Local Helper)
-#' @param x The primary value.
-#' @param y The fallback value.
-#' @return x if valid, otherwise y.
-#' @noRd
-# Helper function for safe access (coalesce for NULL/NA/empty)
-`%||%` <- function(x, y) if (is.null(x) || length(x) == 0 || all(is.na(x))) y else x
-
-#' Confirmatory Factor Analysis (CFA) Server Module Logic
+#' Confirmatory Factor Analysis (CFA) Server Module
 #'
-#' Handles the server-side logic for performing CFA, including dynamic UI updates,
-#' running the analysis, and rendering results like fit measures, factor loadings,
-#' modification indices, and path diagrams.
-#'
-#' @param input Shiny input.
-#' @param output Shiny output.
-#' @param session Shiny session.
-#' @param data A reactive expression returning the current dataset.
-#'
-#' @import shiny
-#' @importFrom lavaan lavaanify
-#' @importFrom lavaan cfa
-#' @importFrom lavaan fitMeasures
-#' @importFrom lavaan standardizedSolution
-#' @importFrom lavaan modificationIndices
-#' @importFrom semPlot semPaths
-#' @importFrom utils write.csv
-#' @importFrom grDevices svg dev.off
-#' @importFrom graphics plot text title
-#' @importFrom stats na.omit
-#' @noRd
-cfa_server <- function(input, output, session, data) {
-  # reactiveValues to store CFA results
-  cfa_analysis_results_rv <- reactiveValues(
-    lavaan_object = NULL,
-    fit_measures_df = NULL,
-    factor_loadings_df = NULL,
-    modification_indices_df = NULL,
-    path_diagram_plot = NULL
-  )
+#' @param id Module namespace ID.
+#' @param data Reactive containing the input dataset.
+#' @importFrom utils head
+#' @export
+cfa_server <- function(id, data) {
+  moduleServer(id, function(input, output, session) {
 
-  # Dynamically update estimator choices based on selected correlation matrix type
-  observeEvent(input$cfa_correlation_type_radio, {
-    req(input$cfa_correlation_type_radio) # Ensure selection is made
+    # Helper for safe NULL/NA access
+    `%||%` <- function(x, y) if (is.null(x) || length(x) == 0 || all(is.na(x))) y else x
 
-    estimator_choices_list <- if (input$cfa_correlation_type_radio == "pea") { # Pearson (continuous data)
-      c("Default (ML if complete, MLR if missing)" = "default", "ML", "MLR", "MLM", "MLMV", "GLS")
-    } else { # Polychoric (ordinal data)
-      c("Default (WLSMV if categorical)" = "default", "WLSMV", "ULSMV", "DWLS")
-    }
-    # Default estimator selection logic
-    selected_estimator_val <- if (input$cfa_correlation_type_radio == "pea") "default" else "default"
-
-    updateSelectInput(session, "cfa_estimator_select",
-                      choices = estimator_choices_list,
-                      selected = selected_estimator_val)
-  }, ignoreNULL = FALSE, ignoreInit = FALSE) # ignoreInit=FALSE to run on startup with default "pea"
-
-  # Main observer for running the CFA
-  observeEvent(input$run_cfa_button, {
-    # --- Validations ---
-    validate(
-      need(data(), "Please upload your dataset to run CFA."),
-      need(input$cfa_model_syntax_input, "Please define the factor structure model using lavaan syntax."),
-      need(input$cfa_correlation_type_radio, "Please select a data type / correlation matrix."),
-      need(input$cfa_estimator_select, "Please select an estimator.")
+    cfa_analysis_results_rv <- reactiveValues(
+      lavaan_object = NULL,
+      fit_measures_df = NULL,
+      factor_loadings_df = NULL,
+      modification_indices_df = NULL
     )
 
-    current_data <- data() # Get the reactive data (assumed to be cleaned by app.R)
-    model_syntax <- input$cfa_model_syntax_input
-    correlation_type <- input$cfa_correlation_type_radio
-    chosen_estimator <- input$cfa_estimator_select
+    # --- 1. MODEL BUILDER LOGIC ---
 
-    # Handle "default" estimator selection
-    if (chosen_estimator == "default") {
-        if (correlation_type == "poly") {
-            chosen_estimator <- "WLSMV"
-        } else {
-            # For continuous, lavaan defaults to ML if data is complete.
-            # Our clean_missing_data in app.R aims for complete cases via listwise deletion.
-            chosen_estimator <- "ML"
-        }
+    observe({
+      req(data())
+      updateSelectizeInput(session, "builder_items", choices = names(data()))
+      updateSelectizeInput(session, "builder_cov_items", choices = names(data()))
+    })
+
+    # Helper to append text
+    append_syntax <- function(new_text) {
+      current <- input$cfa_model_syntax_input
+      if (is.null(current) || current == "") {
+        updateTextAreaInput(session, "cfa_model_syntax_input", value = new_text)
+      } else {
+        updateTextAreaInput(session, "cfa_model_syntax_input", value = paste(current, new_text, sep = "\n"))
+      }
     }
 
-    # Specific validation for estimator and correlation type compatibility
-    if (correlation_type == "pea" && chosen_estimator %in% c("WLSMV", "ULSMV", "DWLS")) {
-      showNotification(
-        paste0("Error: The estimator '", chosen_estimator, "' is typically used with ordinal data (Polychoric correlations). ",
-               "For Pearson correlations, please select an estimator like ML, MLR, or GLS."),
-        type = "error", duration = 10
+    # Add Factor (=~)
+    observeEvent(input$btn_add_to_model, {
+      req(input$builder_factor_name, input$builder_items)
+      f_name <- trimws(input$builder_factor_name)
+      items_str <- paste(input$builder_items, collapse = " + ")
+      new_line <- paste0(f_name, " =~ ", items_str)
+      append_syntax(new_line)
+      updateTextInput(session, "builder_factor_name", value = "")
+      updateSelectizeInput(session, "builder_items", selected = character(0))
+    })
+
+    # Add Covariance (~~)
+    observeEvent(input$btn_add_cov, {
+      req(input$builder_cov_items)
+      if(length(input$builder_cov_items) != 2) {
+        showNotification("Select exactly 2 variables.", type = "warning")
+        return()
+      }
+      new_line <- paste0(input$builder_cov_items[1], " ~~ ", input$builder_cov_items[2])
+      append_syntax(new_line)
+      updateSelectizeInput(session, "builder_cov_items", selected = character(0))
+    })
+
+    # --- 2. DYNAMIC ESTIMATOR SELECTION ---
+    observeEvent(input$cfa_correlation_type_radio, {
+      req(input$cfa_correlation_type_radio)
+      estimator_choices <- if (input$cfa_correlation_type_radio == "pea") {
+        c("Default (MLR)" = "default", "MLR", "ML", "GLS")
+      } else {
+        c("Default (WLSMV)" = "default", "WLSMV", "ULSMV", "DWLS")
+      }
+      updateSelectInput(session, "cfa_estimator_select", choices = estimator_choices, selected = "default")
+    })
+
+    # --- 3. RUN ANALYSIS (Mplus Compatible) ---
+    observeEvent(input$run_cfa_button, {
+      validate(
+        need(data(), "Upload data."),
+        need(input$cfa_model_syntax_input, "Define model.")
       )
-      return() # Stop execution
-    }
-    if (correlation_type == "poly" && chosen_estimator %in% c("ML", "GLS")) {
-        # ML can be used with polychoric if using full data and `missing="FIML"` but our setup uses listwise deletion.
-        # GLS is generally for continuous.
-         showNotification(
-            paste0("Warning: The estimator '", chosen_estimator, "' with Polychoric correlations might be suboptimal or require specific data conditions. ",
-                   "Consider WLSMV, ULSMV, or DWLS for ordinal data."),
-            type = "warning", duration = 10
+
+      current_data <- data()
+      model_syntax <- input$cfa_model_syntax_input
+      corr_type <- input$cfa_correlation_type_radio
+      est_sel <- input$cfa_estimator_select
+
+      final_estimator <- est_sel
+      if (est_sel == "default") {
+        final_estimator <- if (corr_type == "poly") "WLSMV" else "MLR"
+      }
+
+      manifest_vars <- unique(unlist(lavaan::lavaanify(model_syntax)$rhs[lavaan::lavaanify(model_syntax)$op == "=~"]))
+      ordered_arg <- if (corr_type == "poly") manifest_vars else FALSE
+
+      progress_id <- showNotification("Running CFA...", duration = NULL, type = "message")
+      on.exit(removeNotification(progress_id), add = TRUE)
+
+      tryCatch({
+        fit <- lavaan::cfa(
+          model = model_syntax,
+          data = current_data,
+          ordered = ordered_arg,
+          estimator = final_estimator,
+          missing = "listwise",
+          mimic = "Mplus" # Critical for Mplus match
         )
-    }
+        cfa_analysis_results_rv$lavaan_object <- fit
 
+        # Fit Measures
+        fm_raw <- tryCatch(lavaan::fitMeasures(fit), error = function(e) NULL)
+        if(!is.null(fm_raw)) {
+          chi <- fm_raw["chisq.scaled"] %||% fm_raw["chisq"]
+          df  <- fm_raw["df.scaled"] %||% fm_raw["df"]
+          p   <- fm_raw["pvalue.scaled"] %||% fm_raw["pvalue"]
+          cfi <- fm_raw["cfi.scaled"] %||% fm_raw["cfi.robust"] %||% fm_raw["cfi"]
+          tli <- fm_raw["tli.scaled"] %||% fm_raw["tli.robust"] %||% fm_raw["tli"]
+          rmsea     <- fm_raw["rmsea.scaled"] %||% fm_raw["rmsea.robust"] %||% fm_raw["rmsea"]
+          rmsea_low <- fm_raw["rmsea.ci.lower.scaled"] %||% fm_raw["rmsea.ci.lower.robust"] %||% fm_raw["rmsea.ci.lower"]
+          rmsea_upp <- fm_raw["rmsea.ci.upper.scaled"] %||% fm_raw["rmsea.ci.upper.robust"] %||% fm_raw["rmsea.ci.upper"]
+          srmr <- fm_raw["srmr"] %||% fm_raw["srmr_bentler"]
 
-    # Show a notification that analysis is starting
-    progress_id <- showNotification("Running Confirmatory Factor Analysis...", duration = NULL, type = "message")
-    on.exit(removeNotification(progress_id), add = TRUE)
-
-    # Determine 'ordered' argument for lavaan based on correlation type
-    # If "poly", all manifest variables in the model are treated as ordered.
-    manifest_vars <- unique(unlist(lavaan::lavaanify(model_syntax)$rhs[lavaan::lavaanify(model_syntax)$op == "=~"]))
-    ordered_arg_lavaan <- if (correlation_type == "poly" && length(manifest_vars) > 0) manifest_vars else FALSE
-
-
-    # --- Perform CFA ---
-    tryCatch({
-      cfa_fit_object <- lavaan::cfa(
-        model = model_syntax,
-        data = current_data,
-        ordered = ordered_arg_lavaan,
-        estimator = chosen_estimator,
-		missing = 'listwise'
-        # Add other lavaan options if needed, e.g., missing = 'listwise' (though data should be pre-cleaned)
-        # std.lv = TRUE (to fix latent variances to 1 for identification, common practice)
-      )
-      cfa_analysis_results_rv$lavaan_object <- cfa_fit_object
-
-      # --- Extract and Display Fit Measures ---
-      if (!is.null(cfa_fit_object)) {
-        fit_indices_to_get <- c(
-          "chisq", "df", "pvalue", "cfi", "tli", "rmsea", "rmsea.ci.lower", "rmsea.ci.upper", "srmr",
-          "chisq.scaled", "df.scaled", "pvalue.scaled", "cfi.scaled", "tli.scaled", "cfi.robust", "tli.robust",
-          "rmsea.scaled", "rmsea.ci.lower.scaled", "rmsea.ci.upper.scaled", "rmsea.robust", "rmsea.ci.lower.robust", "rmsea.ci.upper.robust",
-          "srmr_bentler" # For robust estimators
-        )
-        fm_raw <- tryCatch(lavaan::fitMeasures(cfa_fit_object, fit.measures = fit_indices_to_get), error = function(e) NULL)
-
-        if(!is.null(fm_raw)){
-            # 1. Temel İndeksler (Ki-Kare, df, p) - Her zaman Scaled öncelikli
-           chi_val <- fm_raw["chisq.scaled"] %||% fm_raw["chisq"] %||% NA
-           df_val <- fm_raw["df.scaled"] %||% fm_raw["df"] %||% NA
-           pval_val <- fm_raw["pvalue.scaled"] %||% fm_raw["pvalue"] %||% NA
-
-           # 2. SRMR Seçimi (Kategorik veride 'srmr_bentler' daha doğrudur)
-           srmr_val <- if(correlation_type == "poly") {
-              fm_raw["srmr_bentler"] %||% fm_raw["srmr"] %||% NA
-           } else {
-              fm_raw["srmr"] %||% fm_raw["srmr_bentler"] %||% NA
-           }
-
-           # 3. Uyum İndeksleri (CFI, TLI, RMSEA)
-           if (correlation_type == "poly") {
-              # --- KATEGORİK (Mplus ULSMV/WLSMV Uyumu) ---
-              # Mplus uyumu için 'scaled' değerleri esastır.
-              cfi_val   <- fm_raw["cfi.scaled"] %||% fm_raw["cfi.robust"] %||% fm_raw["cfi"] %||% NA
-              tli_val   <- fm_raw["tli.scaled"] %||% fm_raw["tli.robust"] %||% fm_raw["tli"] %||% NA
-              rmsea_val <- fm_raw["rmsea.scaled"] %||% fm_raw["rmsea.robust"] %||% fm_raw["rmsea"] %||% NA
-              
-              rmsea_low <- fm_raw["rmsea.ci.lower.scaled"] %||% fm_raw["rmsea.ci.lower.robust"] %||% fm_raw["rmsea.ci.lower"] %||% NA
-              rmsea_upp <- fm_raw["rmsea.ci.upper.scaled"] %||% fm_raw["rmsea.ci.upper.robust"] %||% fm_raw["rmsea.ci.upper"] %||% NA
-              
-           } else {
-              # --- SÜREKLİ (MLR Uyumu) ---
-              # Standart Robust analizlerde 'robust' değerleri esastır.
-              cfi_val   <- fm_raw["cfi.robust"] %||% fm_raw["cfi.scaled"] %||% fm_raw["cfi"] %||% NA
-              tli_val   <- fm_raw["tli.robust"] %||% fm_raw["tli.scaled"] %||% fm_raw["tli"] %||% NA
-              rmsea_val <- fm_raw["rmsea.robust"] %||% fm_raw["rmsea.scaled"] %||% fm_raw["rmsea"] %||% NA
-              
-              rmsea_low <- fm_raw["rmsea.ci.lower.robust"] %||% fm_raw["rmsea.ci.lower.scaled"] %||% fm_raw["rmsea.ci.lower"] %||% NA
-              rmsea_upp <- fm_raw["rmsea.ci.upper.robust"] %||% fm_raw["rmsea.ci.upper.scaled"] %||% fm_raw["rmsea.ci.upper"] %||% NA
-           }
-					
-            chi_df_ratio <- if (!is.na(df_val) && df_val > 0) (chi_val / df_val) else NA
-
-            fit_measures_for_table <- data.frame(
-              Measure = c("Chi-Square", "Degrees of Freedom (df)", "Chi-Sq/df Ratio", "p-value",
-                          "CFI", "TLI (NNFI)", "RMSEA", "RMSEA 90% CI Lower", "RMSEA 90% CI Upper", "SRMR"),
-              Value = c(chi_val, df_val, chi_df_ratio, pval_val,
-                        cfi_val, tli_val, rmsea_val, rmsea_low, rmsea_upp, srmr_val),
-              stringsAsFactors = FALSE
-            )
-            # Round numeric values for display
-            fit_measures_for_table$Value <- ifelse(sapply(fit_measures_for_table$Value, is.numeric) & !is.na(fit_measures_for_table$Value),
-                                                   round(as.numeric(fit_measures_for_table$Value), 3),
-                                                   fit_measures_for_table$Value)
-            fit_measures_for_table$Value[fit_measures_for_table$Measure == "p-value"] <- format.pval(pval_val, digits=3, eps=0.001)
-
-
-            cfa_analysis_results_rv$fit_measures_df <- fit_measures_for_table
-        } else {
-            cfa_analysis_results_rv$fit_measures_df <- data.frame(Message = "Could not retrieve fit measures.")
-        }
-
-        output$cfa_fit_measures_table <- renderTable({
-          req(cfa_analysis_results_rv$fit_measures_df)
-          cfa_analysis_results_rv$fit_measures_df
-        }, rownames = FALSE, striped = TRUE, hover = TRUE, bordered = TRUE)
-      }
-
-      # --- Extract and Display Standardized Factor Loadings ---
-      if (!is.null(cfa_fit_object)) {
-        std_solution <- tryCatch(lavaan::standardizedSolution(cfa_fit_object, type = "std.all", ci = TRUE, level = 0.95), error = function(e) NULL)
-        if(!is.null(std_solution)){
-            loadings_data <- std_solution[std_solution$op == "=~",
-                                          c("lhs", "rhs", "est.std", "se", "z", "pvalue", "ci.lower", "ci.upper")]
-            colnames(loadings_data) <- c("Latent_Factor", "Indicator_Variable", "Std_Loading",
-                                         "Std_Error", "Z_value", "P_value", "CI_Lower_95", "CI_Upper_95")
-
-            # Round numeric columns
-            numeric_cols_ld <-sapply(loadings_data, is.numeric)
-            loadings_data[numeric_cols_ld] <- lapply(loadings_data[numeric_cols_ld], round, 3)
-            loadings_data$"P_value" <- format.pval(as.numeric(loadings_data$"P_value"), digits=3, eps=0.001)
-
-            cfa_analysis_results_rv$factor_loadings_df <- loadings_data
-        } else {
-            cfa_analysis_results_rv$factor_loadings_df <- data.frame(Message = "Could not retrieve standardized factor loadings.")
-        }
-
-        output$cfa_factor_loadings_table <- renderTable({
-          req(cfa_analysis_results_rv$factor_loadings_df)
-          cfa_analysis_results_rv$factor_loadings_df
-        }, rownames = FALSE, striped = TRUE, hover = TRUE, bordered = TRUE)
-      }
-
-      # --- Extract and Display Modification Indices (Top 20) ---
-      if (!is.null(cfa_fit_object)) {
-        mod_indices <- tryCatch(lavaan::modificationIndices(cfa_fit_object, sort. = TRUE, minimum.value = 3.84, maximum.number = 20, free.remove = FALSE, op = c("=~", "~~")), error=function(e)NULL) # Common ops
-        if(!is.null(mod_indices) && nrow(mod_indices)>0){
-            # Select and rename columns for better readability
-            mod_indices_display <- mod_indices[, c("lhs", "op", "rhs", "mi", "epc"), drop = FALSE] # Added epc.std if available
-            if("sepc.all" %in% colnames(mod_indices)) mod_indices_display$sepc.all <- mod_indices$sepc.all
-            if("power" %in% colnames(mod_indices)) mod_indices_display$power <- mod_indices$power
-
-            colnames(mod_indices_display)[colnames(mod_indices_display) == "mi"] <- "Modification_Index (MI)"
-            colnames(mod_indices_display)[colnames(mod_indices_display) == "epc"] <- "Expected_Parameter_Change (EPC)"
-            if("sepc.all" %in% colnames(mod_indices_display)) colnames(mod_indices_display)[colnames(mod_indices_display) == "sepc.all"] <- "Std_EPC_All"
-            if("power" %in% colnames(mod_indices_display)) colnames(mod_indices_display)[colnames(mod_indices_display) == "power"] <- "Power_to_Detect_Misspec"
-
-
-            numeric_cols_mi <-sapply(mod_indices_display, is.numeric)
-            mod_indices_display[numeric_cols_mi] <- lapply(mod_indices_display[numeric_cols_mi], round, 3)
-
-            cfa_analysis_results_rv$modification_indices_df <- mod_indices_display
-        } else if (!is.null(mod_indices) && nrow(mod_indices) == 0) {
-            cfa_analysis_results_rv$modification_indices_df <- data.frame(Message = "No modification indices above the threshold (3.84) or the model is saturated.")
-        } else {
-            cfa_analysis_results_rv$modification_indices_df <- data.frame(Message = "Could not retrieve modification indices.")
-        }
-        output$cfa_modification_indices_table <- renderTable({
-          req(cfa_analysis_results_rv$modification_indices_df)
-          cfa_analysis_results_rv$modification_indices_df
-        }, rownames = FALSE, striped = TRUE, hover = TRUE, bordered = TRUE)
-      }
-
-      # --- Generate and Display Path Diagram ---
-      if (!is.null(cfa_fit_object)) {
-        # semPlot can be slow with complex models or large datasets
-        # Using a reactiveVal for the plot object itself might be better if it's computationally intensive
-        # For now, direct rendering.
-        output$cfa_path_diagram_output <- renderPlot({
-          req(cfa_analysis_results_rv$lavaan_object) # Ensure the lavaan object is available
-          semPlot::semPaths(
-            object = cfa_analysis_results_rv$lavaan_object,
-            what = "std",             # Show standardized parameters
-            whatLabels = "std",       # Label edges with standardized estimates
-            intercepts = FALSE,       # Typically do not show intercepts in path diagrams
-            layout = "tree",          # Common layout for CFA, 'spring' is also good
-            edge.label.cex = 0.8,     # Adjust edge label size
-            sizeMan = 6,              # Size of manifest variables
-            sizeLat = 9,              # Size of latent variables
-            edge.color = "black",
-            rotation = 2,             # For 'tree' layout, 1=top-bottom, 2=left-right, etc.
-            style = "lisrel",         # LISREL style boxes
-            nCharNodes = 0,           # Don't abbreviate node names
-            curve = 1.5,              # Curvature for covariances
-            residuals = TRUE,         # Show residual variances
-            residScale = 8,           # Scale for residual variance arrows/circles
-            theme = "gray"
+          cfa_analysis_results_rv$fit_measures_df <- data.frame(
+            Measure = c("Chi-Square", "Degrees of Freedom (df)", "p-value",
+                        "CFI", "TLI (NNFI)", "RMSEA", "RMSEA 90% CI Lower", "RMSEA 90% CI Upper", "SRMR"),
+            Value = round(c(chi, df, p, cfi, tli, rmsea, rmsea_low, rmsea_upp, srmr), 3)
           )
-          title(main = paste("CFA Path Diagram (Estimator: ", chosen_estimator, ")", sep=""), cex.main = 1.2)
-        })
-      }
-      showNotification("CFA analysis completed successfully!", type = "message", duration = 4)
+          if(!is.na(p)) cfa_analysis_results_rv$fit_measures_df$Value[3] <- format.pval(p, digits=3, eps=0.001)
+        }
 
-    }, error = function(e) {
-      showNotification(
-        paste("Error during CFA analysis:", e$message,
-              "Please check your model syntax, data, and selected options (estimator, correlation type)."),
-        type = "error",
-        duration = 10 # Keep error message longer
-      )
-      # Clear previous results on error
-      cfa_analysis_results_rv$lavaan_object <- NULL
-      cfa_analysis_results_rv$fit_measures_df <- data.frame(Error = e$message)
-      cfa_analysis_results_rv$factor_loadings_df <- data.frame(Error = e$message)
-      cfa_analysis_results_rv$modification_indices_df <- data.frame(Error = e$message)
-      output$cfa_fit_measures_table <- renderTable(cfa_analysis_results_rv$fit_measures_df)
-      output$cfa_factor_loadings_table <- renderTable(cfa_analysis_results_rv$factor_loadings_df)
-      output$cfa_modification_indices_table <- renderTable(cfa_analysis_results_rv$modification_indices_df)
-      output$cfa_path_diagram_output <- renderPlot({ plot(NULL,xlim=c(0,1),ylim=c(0,1),main="Path Diagram Error"); text(0.5,0.5,e$message)})
-    }) # End tryCatch
-  }) # End observeEvent for run_cfa_button
+        # Loadings
+        std_sol <- lavaan::standardizedSolution(fit)
+        loadings <- std_sol[std_sol$op == "=~", c("lhs", "rhs", "est.std", "se", "pvalue")]
+        colnames(loadings) <- c("Factor", "Item", "Std. Estimate", "SE", "p-value")
+        loadings[,3:4] <- round(loadings[,3:4], 3)
+        loadings[,5]   <- format.pval(loadings[,5], digits=3, eps=0.001)
+        cfa_analysis_results_rv$factor_loadings_df <- loadings
 
-  # --- Download Handlers ---
-  output$download_fit_measures_button <- downloadHandler(
-    filename = function() {
-      paste0("cfa_fit_measures_", Sys.Date(), ".csv")
-    },
-    content = function(file) {
-      req(cfa_analysis_results_rv$fit_measures_df)
-      write.csv(cfa_analysis_results_rv$fit_measures_df, file, row.names = FALSE)
-    }
-  )
+        # Mod Indices
+        mod_ind <- lavaan::modificationIndices(fit, sort. = TRUE, minimum.value = 3.84)
+        cfa_analysis_results_rv$modification_indices_df <- head(mod_ind[, c("lhs","op","rhs","mi","epc")], 20)
 
-  output$download_factor_loadings_button <- downloadHandler(
-    filename = function() {
-      paste0("cfa_factor_loadings_", Sys.Date(), ".csv")
-    },
-    content = function(file) {
-      req(cfa_analysis_results_rv$factor_loadings_df)
-      write.csv(cfa_analysis_results_rv$factor_loadings_df, file, row.names = FALSE)
-    }
-  )
+        showNotification("CFA Analysis Complete!", type = "message")
 
-  # No download for modification indices in this version, but could be added similarly
+      }, error = function(e) {
+        showNotification(paste("Error:", e$message), type = "error", duration = 10)
+        cfa_analysis_results_rv$lavaan_object <- NULL
+      })
+    })
 
-  output$download_path_diagram_button <- downloadHandler(
-    filename = function() {
-      paste0("cfa_path_diagram_", Sys.Date(), ".svg") # SVG for scalable vector graphics
-    },
-    content = function(file) {
+    # --- 4. RENDER OUTPUTS (FIXED GRAPHIC) ---
+
+    output$cfa_path_diagram_output <- renderPlot({
       req(cfa_analysis_results_rv$lavaan_object)
-      # Plotting to an SVG device
-      svg(file, width = 10, height = 7.5) # Adjust dimensions as needed
+
+      # UI Controls
+      selected_layout <- input$plot_layout %||% "tree"
+      rotation_val    <- input$plot_rotation %||% 2
+      box_width       <- input$plot_man_size %||% 10
+      label_cex       <- input$plot_edge_label_cex %||% 0.8
+
+      if(selected_layout == "tree2") {
+        selected_layout <- "tree"
+        rotation_val <- 2
+      }
+
+      what_labels <- if(!is.null(input$plot_show_labels) && input$plot_show_labels) "std" else "hide"
+
+      # Fix for Ordinal Data "Thick Arrows"
+      # If ordinal, max residual is 1.0 (very thick). We reduce edge width scaling.
+      is_poly <- (input$cfa_correlation_type_radio == "poly")
+      custom_edge_width <- if(is_poly) 0.5 else 1.2
+
       semPlot::semPaths(
-            object = cfa_analysis_results_rv$lavaan_object,
-            what = "std", whatLabels = "std", intercepts = FALSE, layout = "tree",
-            edge.label.cex = 0.8, sizeMan = 6, sizeLat = 9, edge.color = "black",
-            rotation = 2, style = "lisrel", nCharNodes = 0, curve = 1.5,
-            residuals = TRUE, residScale = 8, theme = "gray"
+        object = cfa_analysis_results_rv$lavaan_object,
+        what = "std",
+        whatLabels = what_labels,
+        layout = selected_layout,
+        rotation = rotation_val,
+
+        # --- FIXED GRAPHICS SETTINGS ---
+        shapeMan = "rectangle",
+        sizeMan = box_width,
+        sizeMan2 = box_width / 2, # Proportional height
+        sizeLat = box_width,
+        sizeLat2 = box_width / 2,
+
+        label.cex = 1.2,
+        edge.label.cex = label_cex,
+        edge.width = custom_edge_width, # DYNAMIC WIDTH FIX
+        edge.color = "black",
+        style = "lisrel",
+
+        intercepts = FALSE,
+        thresholds = FALSE,      # FIX: Hides lines inside boxes for ordinal data
+        residuals = TRUE,
+        residScale = 15,         # Keeps arrows small
+
+        reorder = FALSE,
+        optimizeLatRes = TRUE,
+        curve = 2.5,
+        mar = c(5,5,5,5),
+        nCharNodes = 0,
+        theme = "gray"
       )
-      title(main = paste("CFA Path Diagram (Estimator: ", input$cfa_estimator_select, ")", sep=""), cex.main = 1.2) # Use input for estimator here
-      dev.off() # Close the SVG device
-    }
-  )
-  # No explicit return needed for server modules unless chaining data
+    })
+
+    output$cfa_fit_measures_table <- renderTable({ cfa_analysis_results_rv$fit_measures_df }, striped = TRUE, bordered = TRUE)
+    output$cfa_factor_loadings_table <- renderTable({ cfa_analysis_results_rv$factor_loadings_df }, striped = TRUE)
+    output$cfa_modification_indices_table <- renderTable({ cfa_analysis_results_rv$modification_indices_df }, striped = TRUE)
+
+    # Downloads
+    output$download_fit_measures_button <- downloadHandler(
+      filename = "cfa_fit_measures.csv", content = function(file) write.csv(cfa_analysis_results_rv$fit_measures_df, file)
+    )
+    output$download_factor_loadings_button <- downloadHandler(
+      filename = "cfa_factor_loadings.csv", content = function(file) write.csv(cfa_analysis_results_rv$factor_loadings_df, file)
+    )
+    output$download_path_diagram_button <- downloadHandler(
+      filename = "cfa_path_diagram.svg",
+      content = function(file) {
+        svg(file, width = 12, height = 8)
+
+        selected_layout <- input$plot_layout %||% "tree"
+        rotation_val <- input$plot_rotation %||% 2
+        box_width <- input$plot_man_size %||% 10
+        if(selected_layout == "tree2") { selected_layout <- "tree"; rotation_val <- 2 }
+        is_poly <- (input$cfa_correlation_type_radio == "poly")
+        custom_edge_width <- if(is_poly) 0.5 else 1.2
+
+        semPlot::semPaths(
+          object = cfa_analysis_results_rv$lavaan_object,
+          what = "std", whatLabels = "std",
+          layout = selected_layout, rotation = rotation_val,
+          shapeMan = "rectangle", sizeMan = box_width, sizeMan2 = box_width/2,
+          edge.width = custom_edge_width,
+          thresholds = FALSE, # Also for download
+          reorder = FALSE, residScale = 15,
+          edge.color = "black", style = "lisrel", intercepts = FALSE, residuals = TRUE, nCharNodes = 0
+        )
+        dev.off()
+      }
+    )
+  })
 }
