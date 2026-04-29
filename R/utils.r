@@ -24,24 +24,24 @@ clean_missing_data <- function(data, remove_na = TRUE) {
   # 1. Standartlaştırma: Farklı karakterleri NA'ya çevir
   data_std_na <- as.data.frame(lapply(data, function(col_item) {
     if(is.character(col_item)) {
-        col_item[col_item %in% c("", " ", "NA", "N/A", "na", "n/a", ".", "-", "?", "missing")] <- NA
+      col_item[col_item %in% c("", " ", "NA", "N/A", "na", "n/a", ".", "-", "?", "missing")] <- NA
     } else if (is.factor(col_item)) {
-        char_col <- as.character(col_item)
-        char_col[char_col %in% c("", " ", "NA", "N/A", "na", "n/a", ".", "-", "?", "missing")] <- NA
-        col_item <- char_col
+      char_col <- as.character(col_item)
+      char_col[char_col %in% c("", " ", "NA", "N/A", "na", "n/a", ".", "-", "?", "missing")] <- NA
+      col_item <- char_col
     }
 
     # Karışık tipler için ek kontrol
     if(is.character(col_item) || is.factor(col_item)){
-        potential_na_mask <- is.na(col_item) | suppressWarnings(is.na(as.numeric(as.character(col_item))))
-        col_item[potential_na_mask & !is.na(col_item) & !(as.character(col_item) %in% c("", " "))] <- NA
+      potential_na_mask <- is.na(col_item) | suppressWarnings(is.na(as.numeric(as.character(col_item))))
+      col_item[potential_na_mask & !is.na(col_item) & !(as.character(col_item) %in% c("", " "))] <- NA
     }
     return(col_item)
   }))
 
   # 2. Nümeriğe Çevirme
   data_numeric <- as.data.frame(lapply(data_std_na, function(col_item) {
-      suppressWarnings(as.numeric(as.character(col_item)))
+    suppressWarnings(as.numeric(as.character(col_item)))
   }))
 
   # 3. NA Silme İşlemi (Parametreye Bağlı)
@@ -240,14 +240,19 @@ assumptions <- function(x, mah_p_threshold = 0.001) { # Added mah_p_threshold ar
     warning("Not enough complete cases (N < 2 or N <= P) for some assumption checks.")
   }
 
-  # --- Return List (User's Naming Convention for Mardia) ---
+  # MVN table: Mardia Skewness + Kurtosis
+  mvn_table <- rbind(mardia_skew_result_df, mardia_kurt_result_df)
+  rownames(mvn_table) <- NULL
+
+  # --- Return List ---
   return(list(
-    descriptives = round(descr, 2),
+    descriptives      = round(descr, 2),
     multicollinearity = round(mc_control, 2),
-    Mah_significant = Mah_significant, # This is already a data.frame
-    n_outlier = n_outlier,             # This is nrow(Mah_significant)
-    Mardia_Kurtosis = mardia_kurt_result_df, # This is the 1-row data.frame
-    Mardia_Skewness = mardia_skew_result_df  # This is the 1-row data.frame
+    Mah_significant   = Mah_significant,
+    n_outlier         = n_outlier,
+    Mardia_Kurtosis   = mardia_kurt_result_df,
+    Mardia_Skewness   = mardia_skew_result_df,
+    mvn_table         = mvn_table          # All MVN tests in one data frame
   ))
 }
 
@@ -273,13 +278,13 @@ factor_ret <- function(x, method = "hull_method") {
     x <- as.data.frame(x)
   }
   if (!all(sapply(x, is.numeric))) {
-      x_numeric_cols <- sapply(x, is.numeric)
-      non_numeric_cols <- colnames(x)[!x_numeric_cols]
-      warning(paste0("DEBUG factor_ret: Non-numeric columns found and will be excluded: ", paste(non_numeric_cols, collapse=", ")))
-      x <- x[, x_numeric_cols, drop=FALSE]
-      if(ncol(x) < 2) {
-        return(data.frame(Suggested_Factors = NA, row.names = paste("Error in", method, ": Requires at least 2 numeric columns.")))
-      }
+    x_numeric_cols <- sapply(x, is.numeric)
+    non_numeric_cols <- colnames(x)[!x_numeric_cols]
+    warning(paste0("DEBUG factor_ret: Non-numeric columns found and will be excluded: ", paste(non_numeric_cols, collapse=", ")))
+    x <- x[, x_numeric_cols, drop=FALSE]
+    if(ncol(x) < 2) {
+      return(data.frame(Suggested_Factors = NA, row.names = paste("Error in", method, ": Requires at least 2 numeric columns.")))
+    }
   }
 
   x_complete <- stats::na.omit(x)
@@ -290,8 +295,8 @@ factor_ret <- function(x, method = "hull_method") {
 
   col_variances <- apply(x_complete, 2, var)
   if (any(col_variances == 0, na.rm = TRUE)) {
-      zero_var_cols <- colnames(x_complete)[col_variances == 0]
-      return(data.frame(Suggested_Factors = NA, row.names = paste("Error in", method, ": Zero variance in column(s)")))
+    zero_var_cols <- colnames(x_complete)[col_variances == 0]
+    return(data.frame(Suggested_Factors = NA, row.names = paste("Error in", method, ": Zero variance in column(s)")))
   }
 
   if (method == "pa_mrfa") {
@@ -351,7 +356,7 @@ factor_ret <- function(x, method = "hull_method") {
       data.frame(Suggested_Factors = NA, row.names = paste("Error in EK_C:", conditionMessage(e)))
     }))
   } else if (method == "comp_data_method") {
-     return(tryCatch({
+    return(tryCatch({
       cd_analysis <- EFAtools::CD(x_complete)
       data.frame(Suggested_Factors = cd_analysis$n_factors, row.names = "Comparison Data (CD)")
     }, error = function(e) {
@@ -383,11 +388,11 @@ factor_ret <- function(x, method = "hull_method") {
 #' @noRd
 reliability_func <- function(x, method = "alpha", cor_kind = "cor", defined_structure = NULL, strata_define = NULL) {
   if (!is.data.frame(x) && !is.matrix(x)) x <- as.data.frame(x)
-    if (!all(sapply(x, is.numeric))) {
-      x_numeric_cols <- sapply(x, is.numeric)
-      warning(paste0("Non-numeric columns found and will be excluded from reliability analysis: ", paste(colnames(x)[!x_numeric_cols], collapse=", ")))
-      x <- x[, x_numeric_cols, drop=FALSE]
-      if(ncol(x) < 2) stop("At least two numeric columns required for reliability analysis.")
+  if (!all(sapply(x, is.numeric))) {
+    x_numeric_cols <- sapply(x, is.numeric)
+    warning(paste0("Non-numeric columns found and will be excluded from reliability analysis: ", paste(colnames(x)[!x_numeric_cols], collapse=", ")))
+    x <- x[, x_numeric_cols, drop=FALSE]
+    if(ncol(x) < 2) stop("At least two numeric columns required for reliability analysis.")
   }
   x_complete <- stats::na.omit(x)
   if (nrow(x_complete) < 2 || ncol(x_complete) < 2 ) {
@@ -402,18 +407,18 @@ reliability_func <- function(x, method = "alpha", cor_kind = "cor", defined_stru
       as.numeric(std_alpha_val)
     } else if (method == "omega") {
       omega_psych <- tryCatch(psych::omega(x_complete, plot=FALSE, fm="pa"), error = function(e) {
-          warning(paste("psych::omega failed:", e$message, "Trying MBESS if N > P.")); NULL
-          })
+        warning(paste("psych::omega failed:", e$message, "Trying MBESS if N > P.")); NULL
+      })
       if(!is.null(omega_psych) && "omega.tot" %in% names(omega_psych)){
-          return(omega_psych$omega.tot)
+        return(omega_psych$omega.tot)
       } else if (nrow(x_complete) > ncol(x_complete)) {
-          warning("psych::omega did not provide omega.tot, attempting MBESS::ci.reliability (requires N > P).")
-          cov_matrix <- stats::cov(x_complete)
-          omega_analysis_mbess <- MBESS::ci.reliability(S = cov_matrix, N = nrow(x_complete), type = "omega")
-          return(omega_analysis_mbess$est)
+        warning("psych::omega did not provide omega.tot, attempting MBESS::ci.reliability (requires N > P).")
+        cov_matrix <- stats::cov(x_complete)
+        omega_analysis_mbess <- MBESS::ci.reliability(S = cov_matrix, N = nrow(x_complete), type = "omega")
+        return(omega_analysis_mbess$est)
       } else {
-          warning("Omega calculation failed with psych::omega and N <= P for MBESS.")
-          return(NA_real_)
+        warning("Omega calculation failed with psych::omega and N <= P for MBESS.")
+        return(NA_real_)
       }
     } else if (method == "theta") {
       armor_theta_calc <- function(data_in, correlation_type_internal = "cor") {
@@ -421,13 +426,13 @@ reliability_func <- function(x, method = "alpha", cor_kind = "cor", defined_stru
         if (num_items < 2) return(NA_real_)
         valid_cor_types <- c("cor", "cov", "poly", "tet")
         if(!(correlation_type_internal %in% valid_cor_types)) {
-            warning(paste("Invalid correlation_type '", correlation_type_internal, "' for psych::principal. Defaulting to 'cor'."))
-            correlation_type_internal <- "cor"
+          warning(paste("Invalid correlation_type '", correlation_type_internal, "' for psych::principal. Defaulting to 'cor'."))
+          correlation_type_internal <- "cor"
         }
         pca_res <- psych::principal(data_in, nfactors = 1, rotate = "none", cor = correlation_type_internal)
         first_eigenvalue <- pca_res$Vaccounted[1, 1]
         if (is.na(first_eigenvalue) || (first_eigenvalue <= 1 && num_items > 1) || num_items <= 1) {
-            return(NA_real_)
+          return(NA_real_)
         }
         theta_val <- (num_items / (num_items - 1)) * (1 - (1 / first_eigenvalue))
         return(theta_val)
@@ -458,6 +463,46 @@ reliability_func <- function(x, method = "alpha", cor_kind = "cor", defined_stru
 
       s_alpha_results <- sirt::stratified.cronbach.alpha(dat = x_complete, itemstrata = strata_matrix_sirt)
       s_alpha_results$alpha.stratified[1]
+    } else if (method == "omega_h") {
+      omega_res <- tryCatch(
+        psych::omega(x_complete, plot = FALSE, fm = "pa"),
+        error = function(e) NULL
+      )
+      if (!is.null(omega_res) && "omega_h" %in% names(omega_res)) {
+        return(omega_res$omega_h)
+      }
+      warning("omega_h: psych::omega failed or omega_h not found.")
+      return(NA_real_)
+
+    } else if (method == "cr") {
+      if (is.null(defined_structure) || nchar(trimws(defined_structure)) == 0) {
+        stop("A lavaan CFA model syntax is required for Composite Reliability (CR) and AVE.")
+      }
+      manifest_vars_cr <- unique(unlist(
+        lavaan::lavaanify(defined_structure)$rhs[lavaan::lavaanify(defined_structure)$op == "=~"]
+      ))
+      ordered_arg_cr <- if (cor_kind == "poly" && length(manifest_vars_cr) > 0) manifest_vars_cr else FALSE
+      estimator_cr   <- ifelse(any(as.logical(ordered_arg_cr)), "WLSMV", "ML")
+
+      cfa_fit_cr <- lavaan::cfa(
+        model = defined_structure, data = x_complete,
+        ordered = ordered_arg_cr, estimator = estimator_cr, warn = FALSE
+      )
+      std_sol_cr  <- lavaan::standardizedSolution(cfa_fit_cr)
+      load_rows   <- std_sol_cr[std_sol_cr$op == "=~", , drop = FALSE]
+      factors     <- unique(load_rows$lhs)
+
+      lines <- vapply(factors, function(f) {
+        l       <- load_rows[load_rows$lhs == f, "est.std"]
+        l       <- l[!is.na(l)]
+        cr_val  <- sum(l)^2 / (sum(l)^2 + sum(1 - l^2))
+        ave_val <- sum(l^2) / (sum(l^2) + sum(1 - l^2))
+        sprintf("%s  ->  CR = %.3f  |  AVE = %.3f", f, cr_val, ave_val)
+      }, character(1))
+
+      header <- paste0(rep("-", 42), collapse = "")
+      return(paste(c(header, lines, header), collapse = "\n"))
+
     } else {
       stop(paste("Unknown reliability method:", method))
     }

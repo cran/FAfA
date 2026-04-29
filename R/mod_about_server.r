@@ -44,8 +44,29 @@ about_server <- function(id) {
         ),
         p(strong("Email 1:"), tags$a(href = "mailto:abdullahfarukkilic@gmail.com", "abdullahfarukkilic@gmail.com")),
         p(strong("Email 2:"), tags$a(href = "mailto:afarukkilic@trakya.edu.tr", "afarukkilic@trakya.edu.tr")),
-        p(strong("ResearchGate:"), tags$a(href = "https://www.researchgate.net/profile/Abdullah-Kilic-2", target = "_blank", "View ResearchGate Profile")),
-        p(strong("Google Scholar:"), tags$a(href = "https://scholar.google.com/citations?user=AP7LlpoAAAAJ&hl=en", target = "_blank", "View Google Scholar Profile")),
+        div(
+          class = "d-flex flex-wrap gap-2 mt-2 mb-3",
+          tags$a(
+            href = "https://www.instagram.com/afarukkilic/",
+            target = "_blank", rel = "noopener",
+            class = "btn btn-sm",
+            style = "background: linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888); color:#fff; border:none;",
+            tags$i(class = "bi bi-instagram"), " Instagram"
+          ),
+          tags$a(
+            href = "https://www.researchgate.net/profile/Abdullah-Kilic-2",
+            target = "_blank", rel = "noopener",
+            class = "btn btn-sm",
+            style = "background:#00CCBB; color:#fff; border:none;",
+            tags$i(class = "bi bi-file-earmark-text"), " ResearchGate"
+          ),
+          tags$a(
+            href = "https://scholar.google.com/citations?user=AP7LlpoAAAAJ&hl=en",
+            target = "_blank", rel = "noopener",
+            class = "btn btn-sm btn-primary",
+            tags$i(class = "bi bi-mortarboard"), " Google Scholar"
+          )
+        ),
 
         hr(),
 
@@ -78,16 +99,33 @@ about_server <- function(id) {
           tags$li(strong("Murat Dogan SAHIN:"), tags$a(href = "https://avesis.anadolu.edu.tr/mdsahin", target = "_blank", "Researcher's Profile"))
         ),
         br(),
-        p(strong("What's New in Version 0.5:")),
+        p(strong("What's New in Version 1.0:")),
         tags$ul(
-          tags$li("Added 'Item Drop Out' module for automated item reduction strategies."),
-          tags$li("Introduced 'Missing Data' module with advanced imputation methods (MICE, missForest)."),
-          tags$li("Added 'Stratified Alpha' to Reliability Analysis."),
-          tags$li("Enhanced CFA and Invariance modules with an interactive 'Model Builder'."),
-          tags$li("Improved UI consistency and performance.")
+          tags$li(strong("Modern UI redesign:"),
+                  " Completely redesigned interface with a dark sidebar, Inter typography, gradient card headers, refined buttons and tables, custom scrollbars, and color-coded notifications."),
+          tags$li(strong("Exclude Variables module redesigned:"),
+                  " Dual-panel checkbox layout with real-time variable counters (Total / Excluded / Active). Supports selective recovery and full reset. Bottom-right notifications report exact exclusion counts."),
+          tags$li(strong("EFA extraction methods expanded:"),
+                  " Eight extraction methods now available: Minimum Residuals, Maximum Likelihood, Principal Axis, ULS, Weighted Least Squares, Minimum Rank, Minimum Chi-Square, and Generalized Least Squares."),
+          tags$li(strong("EFA rotation methods expanded:"),
+                  " Fourteen rotation methods organized into Oblique (Oblimin, Promax, Quartimin, BiquartMin, GeominQ, BentlerQ, Simplimax, Cluster) and Orthogonal (Varimax, Quartimax, Equamax, BentlerT, GeominT, Bifactor) groups."),
+          tags$li(strong("EFA Report layout restructured:"),
+                  " KMO and Bartlett's test presented in a compact horizontal card. Factor solution (loadings, variance, phi matrix) and Correlation Heatmap unified in a tabbed card. Heatmap now reports min, max, mean, and median off-diagonal correlations."),
+          tags$li(strong("EGA community detection algorithms added:"),
+                  " Six algorithms available: Walktrap, Louvain, Leiden, Fast Greedy, Edge Betweenness, and Label Propagation. EGA results panel redesigned with a tabbed layout."),
+          tags$li(strong("Reliability Analysis expanded:"),
+                  " Added McDonald's Omega Hierarchical and Composite Reliability & AVE (CFA-based). Coefficient selection uses radio buttons for full visibility. Generic reference thresholds removed."),
+          tags$li(strong("Multicollinearity interpretation guide added:"),
+                  " VIF, Tolerance, and Condition Index thresholds shown below the collinearity table."),
+          tags$li(strong("CFA Model Builder improved:"),
+                  " 'Add Factor' renamed to 'Add to Syntax'. Validation warning shown when factor name is empty. Placeholder text clarified."),
+          tags$li(strong("CFA path diagram fixed for ordinal data:"),
+                  " Overlapping residual arrows (caused by WLSMV identification constraints fixing residuals to 1.0) are now hidden for polychoric/ordinal analyses."),
+          tags$li(strong("About page updated:"),
+                  " Instagram, ResearchGate, and Google Scholar profile links added as interactive buttons.")
         ),
         br(),
-        p(em("Current Version: 0.5"))
+        p(em("Current Version: 1.0"))
       )
     })
 

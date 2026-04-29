@@ -15,16 +15,24 @@ assumptions_ui <- function(id) {
         downloadButton(ns("download_descriptives_button"), "Download CSV")
       )
     ),
-    
+
     # Collinearity & Normality Side-by-Side
     layout_columns(
       col_widths = c(6, 6),
       card(
         card_header("Collinearity", bs_icon("link-45deg")),
         card_body(
-          p("Check for multicollinearity (VIF, Tolerance)."),
+          p("Check for multicollinearity using VIF, Tolerance (TOL), and Condition Index (CI)."),
           actionButton(ns("run_collinearity_button"), "Run Collinearity Check", class = "btn-secondary w-100 mb-2"),
-          tableOutput(ns("collinearity_table_output"))
+          tableOutput(ns("collinearity_table_output")),
+          div(
+            class = "mt-2 p-2 rounded",
+            style = "background:#f1f5f9; font-size:0.78rem; color:#475569; line-height:1.6;",
+            tags$b("Interpretation guidelines:"), tags$br(),
+            tags$b("VIF:"), " < 5 acceptable, < 10 maximum threshold.", tags$br(),
+            tags$b("TOL:"), " > 0.20 acceptable, > 0.10 minimum threshold.", tags$br(),
+            tags$b("CI:"), " < 10 no collinearity, 10-30 moderate, > 30 severe."
+          )
         )
       ),
       card(

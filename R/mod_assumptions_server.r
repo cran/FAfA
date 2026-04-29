@@ -9,7 +9,7 @@ assumptions_server <- function(id, data) {
 
     observeEvent(input$run_descriptives_button, {
       req(data())
-      res <- assumptions(data()) # utils.R'deki fonksiyon
+      res <- assumptions(data())
       results_rv$desc <- res$descriptives
     })
 
@@ -21,23 +21,36 @@ assumptions_server <- function(id, data) {
 
     observeEvent(input$run_normality_tests_button, {
       req(data())
-      res <- assumptions(data())
-      # Tabloyu oluştur
-      norm_df <- rbind(res$Mardia_Skewness, res$Mardia_Kurtosis)
-      # Energy test ekleme mantığı (varsa)
-      try({
-        en <- energy::mvnorm.test(as.matrix(data()), R=100)
-        norm_df <- rbind(norm_df, data.frame(Test="Energy", Statistic=en$statistic, p.value=en$p.value, Result=ifelse(en$p.value>0.05,"Yes","No"), check.names=F))
-      }, silent=TRUE)
-      results_rv$norm <- norm_df
+      progress_id <- showNotification("Running normality tests...",
+                                      duration = NULL, type = "message")
+      on.exit(removeNotification(progress_id), add = TRUE)
+
+      tryCatch({
+        res            <- assumptions(data())
+        norm_df        <- res$mvn_table
+
+        # Format p-values for display
+        norm_df[["p-value"]] <- sapply(norm_df[["p-value"]], function(p) {
+          if (is.na(p)) return(NA_character_)
+          if (p < 0.001) "< .001" else as.character(round(p, 3))
+        })
+
+        results_rv$norm <- norm_df
+      }, error = function(e) {
+        showNotification(paste("Error:", e$message), type = "error", duration = 8)
+      })
     })
 
-    output$descriptives_table_output <- renderTable({ results_rv$desc }, rownames=TRUE)
-    output$collinearity_table_output <- renderTable({ results_rv$multi })
-    output$multivariate_normality_table_output <- renderTable({ results_rv$norm })
+    output$descriptives_table_output          <- renderTable({ results_rv$desc  }, rownames = TRUE)
+    output$collinearity_table_output          <- renderTable({ results_rv$multi })
+    output$multivariate_normality_table_output <- renderTable({
+      validate(need(results_rv$norm, "Click 'Run Normality Tests' to compute results."))
+      results_rv$norm
+    }, striped = TRUE, bordered = TRUE, na = "-")
 
     output$download_descriptives_button <- downloadHandler(
-      filename="descriptives.csv", content=function(f) write.csv(results_rv$desc, f)
+      filename = "descriptives.csv",
+      content  = function(f) write.csv(results_rv$desc, f)
     )
   })
 }

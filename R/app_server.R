@@ -3,9 +3,11 @@
 #' @noRd
 app_server <- function(input, output, session) {
 
-  # --- Initial Data Loading ---
-  shared_data_reactive <- reactive({
-    inFile <- input[["data_selection-file1"]] 
+  # --- Initial Data Loading (GÜNCELLENDİ) ---
+  # reactive() yerine eventReactive() kullanarak işlemi butona bağladık.
+  # Artık veri sadece 'Analyze Data' butonuna basıldığında okunacak ve güncellenecek.
+  shared_data_reactive <- eventReactive(input[["data_selection-analyze_data"]], {
+    inFile <- input[["data_selection-file1"]]
     user_has_header <- input[["data_selection-has_header_checkbox"]] %||% TRUE
 
     if (is.null(inFile)) return(NULL)
@@ -18,18 +20,17 @@ app_server <- function(input, output, session) {
                    "sav" = haven::read_sav(inFile$datapath),
                    utils::read.table(inFile$datapath, header = user_has_header, na.strings = c("NA", "", " "))
       )
-      
-      # ÖNEMLİ DEĞİŞİKLİK: remove_na = FALSE
+
       # Kayıp verileri silme, olduğu gibi bırak. "Missing Values" modülü halledecek.
       cleaned_result <- clean_missing_data(df, remove_na = FALSE)
-      
+
       if(!is.null(cleaned_result$cleaned_data)) return(cleaned_result$cleaned_data)
       return(NULL)
     }, error = function(e) {
       showNotification(paste("Error:", e$message), type = "error")
       return(NULL)
     })
-  })
+  }, ignoreNULL = FALSE) # ignoreNULL=FALSE: İlk açılışta boş veri ile başlamasını sağlar, hata vermez.
 
   # --- Data Selection ---
   data_selection_server("data_selection", data = shared_data_reactive)
@@ -68,9 +69,9 @@ app_server <- function(input, output, session) {
   efa_server_fac_ret("efa_fac_ret", data = final_wrangled_data_reactive)
 
   efa_settings_reactive <- moduleServer("efa_analysis", function(input, output, session) {
-      reactive({
-        list(number_factor = input$number_factor, rotating_method = input$rotating_method, fact_method = input$fact_method, cor_kind = input$cor_kind)
-      })
+    reactive({
+      list(number_factor = input$number_factor, rotating_method = input$rotating_method, fact_method = input$fact_method, cor_kind = input$cor_kind)
+    })
   })
 
   returned_efa_object_reactive <- efa_server_analysis("efa_analysis", data = final_wrangled_data_reactive)

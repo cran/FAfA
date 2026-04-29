@@ -144,6 +144,26 @@ efa_server_report <- function(id, data, efa_output_reactive, efa_settings_reacti
       ggcorrplot::ggcorrplot(cor_mat, type="lower", lab = (ncol(cor_mat) < 15))
     })
 
+    # Correlation range below heatmap
+    output$cor_range_text <- renderText({
+      req(data())
+      tryCatch({
+        cor_mat <- if (efa_settings_reactive()$cor_kind == "pea") {
+          stats::cor(stats::na.omit(data()))
+        } else {
+          suppressWarnings(psych::polychoric(data())$rho)
+        }
+        tri <- cor_mat[upper.tri(cor_mat)]
+        paste0(
+          "Off-diagonal correlations - ",
+          "Min: ", round(min(tri),  3), "  |  ",
+          "Max: ", round(max(tri),  3), "  |  ",
+          "Mean: ", round(mean(tri), 3), "  |  ",
+          "Median: ", round(stats::median(tri), 3)
+        )
+      }, error = function(e) "Correlation range could not be computed.")
+    })
+
     # Download Loadings
     output$download_efa_loadings <- downloadHandler(
       filename = "efa_loadings.csv",

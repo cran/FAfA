@@ -57,9 +57,10 @@ ega_server <- function(id, data) {
         correlation_method_for_ega <- input$ega_correlation_type_radio
 
         ega_output <- EGAnet::EGA(
-          data = current_data,
-          model = input$ega_estimation_method_select,
-          corr = correlation_method_for_ega,
+          data      = current_data,
+          model     = input$ega_estimation_method_select,
+          algorithm = input$ega_algorithm_select %||% "walktrap",
+          corr      = correlation_method_for_ega,
           plot.EGA = TRUE,
           plot.type = "qgraph",
           plot.args = list(

@@ -10,7 +10,7 @@ inv_ui <- function(id) {
           card_header("Model Builder", class = "bg-info text-white", bs_icon("magic")),
           card_body(
             h6("Define Factor (=~)", class = "text-primary"),
-            textInput(ns("builder_factor_name"), "Factor Name (e.g., F1):", placeholder = "F1"),
+            textInput(ns("builder_factor_name"), "Factor Name:", placeholder = "e.g. F1, F2, Factor1 ..."),
             selectizeInput(
               ns("builder_items"),
               "Select Indicators:",
@@ -20,8 +20,8 @@ inv_ui <- function(id) {
             ),
             actionButton(
               ns("btn_add_to_model"),
-              "Add Factor",
-              icon = icon("plus"),
+              "Add to Syntax",
+              icon = icon("code"),
               class = "btn-secondary btn-sm w-100 mb-3"
             ),
 

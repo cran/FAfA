@@ -42,12 +42,19 @@ reliability_server <- function(id, data) {
 
       tryCatch({
         # utils.R'deki reliability_func fonksiyonunu cagriyoruz
+        # Pick the right correlation argument for each method
+        cor_arg <- if (input$reliability_coefficient_select == "cr") {
+          input$cr_correlation_type_radio %||% "cor"
+        } else {
+          input$correlation_type_radio %||% "cor"
+        }
+
         res <- reliability_func(
-          x = current_data,
-          method = input$reliability_coefficient_select,
-          cor_kind = input$correlation_type_radio %||% "cor",
-          defined_structure = input$cfa_model_for_reliability_input, # (Not: UI'da bu input gizli/yok ama fonksiyonda var, sorun değil NULL gider)
-          strata_define = input$strata_definition_input
+          x                 = current_data,
+          method            = input$reliability_coefficient_select,
+          cor_kind          = cor_arg,
+          defined_structure = input$cfa_model_for_reliability_input,
+          strata_define     = input$strata_definition_input
         )
         reliability_output_rv(res)
 

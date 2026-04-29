@@ -37,13 +37,23 @@ cfa_server <- function(id, data) {
 
     # Add Factor (=~)
     observeEvent(input$btn_add_to_model, {
-      req(input$builder_factor_name, input$builder_items)
-      f_name <- trimws(input$builder_factor_name)
+      f_name <- trimws(input$builder_factor_name %||% "")
+      if (nchar(f_name) == 0) {
+        showNotification(
+          "Factor name is required. Type a name (e.g. F1) before adding to syntax.",
+          type = "warning", duration = 5
+        )
+        return()
+      }
+      if (is.null(input$builder_items) || length(input$builder_items) == 0) {
+        showNotification("Select at least one indicator variable.", type = "warning")
+        return()
+      }
       items_str <- paste(input$builder_items, collapse = " + ")
-      new_line <- paste0(f_name, " =~ ", items_str)
+      new_line  <- paste0(f_name, " =~ ", items_str)
       append_syntax(new_line)
-      updateTextInput(session, "builder_factor_name", value = "")
-      updateSelectizeInput(session, "builder_items", selected = character(0))
+      updateTextInput(session,     "builder_factor_name", value = "")
+      updateSelectizeInput(session, "builder_items",      selected = character(0))
     })
 
     # Add Covariance (~~)
@@ -162,10 +172,11 @@ cfa_server <- function(id, data) {
 
       what_labels <- if(!is.null(input$plot_show_labels) && input$plot_show_labels) "std" else "hide"
 
-      # Fix for Ordinal Data "Thick Arrows"
-      # If ordinal, max residual is 1.0 (very thick). We reduce edge width scaling.
       is_poly <- (input$cfa_correlation_type_radio == "poly")
       custom_edge_width <- if(is_poly) 0.5 else 1.2
+      # For polychoric/ordinal: residuals are fixed to 1.0 (WLSMV identification
+      # constraint) and overlap badly. Hide them - loadings carry the key info.
+      show_residuals <- !is_poly
 
       semPlot::semPaths(
         object = cfa_analysis_results_rv$lavaan_object,
@@ -174,30 +185,29 @@ cfa_server <- function(id, data) {
         layout = selected_layout,
         rotation = rotation_val,
 
-        # --- FIXED GRAPHICS SETTINGS ---
-        shapeMan = "rectangle",
-        sizeMan = box_width,
-        sizeMan2 = box_width / 2, # Proportional height
-        sizeLat = box_width,
-        sizeLat2 = box_width / 2,
+        shapeMan      = "rectangle",
+        sizeMan       = box_width,
+        sizeMan2      = box_width / 2,
+        sizeLat       = box_width,
+        sizeLat2      = box_width / 2,
 
-        label.cex = 1.2,
+        label.cex     = 1.2,
         edge.label.cex = label_cex,
-        edge.width = custom_edge_width, # DYNAMIC WIDTH FIX
-        edge.color = "black",
-        style = "lisrel",
+        edge.width    = custom_edge_width,
+        edge.color    = "black",
+        style         = "lisrel",
 
-        intercepts = FALSE,
-        thresholds = FALSE,      # FIX: Hides lines inside boxes for ordinal data
-        residuals = TRUE,
-        residScale = 15,         # Keeps arrows small
+        intercepts    = FALSE,
+        thresholds    = FALSE,
+        residuals     = show_residuals,
+        residScale    = 15,
 
-        reorder = FALSE,
-        optimizeLatRes = TRUE,
-        curve = 2.5,
-        mar = c(5,5,5,5),
-        nCharNodes = 0,
-        theme = "gray"
+        reorder          = FALSE,
+        optimizeLatRes   = TRUE,
+        curve            = 2.5,
+        mar              = c(5, 5, 5, 5),
+        nCharNodes       = 0,
+        theme            = "gray"
       )
     })
 
@@ -224,15 +234,21 @@ cfa_server <- function(id, data) {
         is_poly <- (input$cfa_correlation_type_radio == "poly")
         custom_edge_width <- if(is_poly) 0.5 else 1.2
 
+        is_poly_dl <- (input$cfa_correlation_type_radio == "poly")
         semPlot::semPaths(
           object = cfa_analysis_results_rv$lavaan_object,
           what = "std", whatLabels = "std",
           layout = selected_layout, rotation = rotation_val,
           shapeMan = "rectangle", sizeMan = box_width, sizeMan2 = box_width/2,
-          edge.width = custom_edge_width,
-          thresholds = FALSE, # Also for download
-          reorder = FALSE, residScale = 15,
-          edge.color = "black", style = "lisrel", intercepts = FALSE, residuals = TRUE, nCharNodes = 0
+          edge.width    = custom_edge_width,
+          thresholds    = FALSE,
+          reorder       = FALSE,
+          residScale    = 15,
+          residuals     = !is_poly_dl,
+          edge.color    = "black",
+          style         = "lisrel",
+          intercepts    = FALSE,
+          nCharNodes    = 0
         )
         dev.off()
       }
