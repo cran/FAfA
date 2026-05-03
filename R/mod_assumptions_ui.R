@@ -38,7 +38,7 @@ assumptions_ui <- function(id) {
       card(
         card_header("Multivariate Normality", bs_icon("graph-up-arrow")),
         card_body(
-          p("Mardia's Skewness & Kurtosis, Energy Test."),
+          p("Mardia (Skewness & Kurtosis) tests for multivariate normality."),
           actionButton(ns("run_normality_tests_button"), "Run Normality Tests", class = "btn-secondary w-100 mb-2"),
           tableOutput(ns("multivariate_normality_table_output"))
         )

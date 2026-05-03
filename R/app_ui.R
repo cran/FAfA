@@ -60,8 +60,16 @@ app_ui <- function(request) {
 }
 
 /* ---- Sidebar: dark panel ---- */
-.row > .col-sm-3:has(#tabs) {
-  background: #0f172a;
+.fafa-nav-shell > .row > :first-child,
+.fafa-nav-shell > .tabbable > .row > :first-child {
+  background: #0f172a !important;
+  border-radius: 14px;
+  padding: 14px 10px 20px 10px !important;
+  min-height: calc(100vh - 80px);
+}
+
+#tabs {
+  background: #0f172a !important;
   border-radius: 14px;
   padding: 14px 10px 20px 10px !important;
   min-height: calc(100vh - 80px);
@@ -242,9 +250,11 @@ code         { font-size: 0.8rem; background: #f1f5f9; border-radius: 4px; paddi
         "),
 
       # ---- Navigation ----
-      navset_pill_list(
-        id     = "tabs",
-        widths = c(3, 9),
+      div(
+        class = "fafa-nav-shell",
+        navset_pill_list(
+          id     = "tabs",
+          widths = c(2, 10),
 
         # Logo
         nav_item(
@@ -271,6 +281,7 @@ code         { font-size: 0.8rem; background: #f1f5f9; border-radius: 4px; paddi
         nav_panel("Factor Retention",     value = "fac_ret",    icon = bs_icon("graph-up"),   efa_ui_fac_ret("efa_fac_ret")),
         nav_panel("EFA Setup & Analysis", value = "efa",        icon = bs_icon("sliders"),    efa_ui_analysis("efa_analysis")),
         nav_panel("Item Drop Out",        value = "item_rest",  icon = bs_icon("list-check"), mod_itemrest_ui("item_rest")),
+        nav_panel("Replicability",        value = "rep_efa",    icon = bs_icon("shuffle"),    efa_ui_replicability("efa_replicability")),
         nav_panel("EFA Reporting",        value = "report_efa", icon = bs_icon("file-text"),  efa_ui_report("efa_report")),
 
         # Advanced Analysis
@@ -283,7 +294,8 @@ code         { font-size: 0.8rem; background: #f1f5f9; border-radius: 4px; paddi
 
         # Info
         nav_item(.sidebar_label("info-circle", "Info")),
-        nav_panel("About", value = "about", icon = bs_icon("question-circle"), about_ui("about"))
+          nav_panel("About", value = "about", icon = bs_icon("question-circle"), about_ui("about"))
+        )
       )
     )
   )

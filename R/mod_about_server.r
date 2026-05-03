@@ -1,7 +1,7 @@
 #' About Server Module
 #'
 #' @param id Module namespace ID.
-#' @export
+#' @noRd
 about_server <- function(id) {
   moduleServer(id, function(input, output, session) {
 
@@ -11,7 +11,7 @@ about_server <- function(id) {
         h4(strong("FAfA: Factor Analysis for All")),
 
         p(strong("Aim:")),
-        p("The FAfA (Factor Analysis for All) Shiny application is a powerful and user-friendly tool designed to simplify Exploratory Factor Analysis (EFA), Confirmatory Factor Analysis (CFA), and Measurement Invariance workflows for researchers. Developed with R and Shiny, FAfA aims to unify these psychometric procedures within a single, intuitive interface, reducing the need for multiple software tools or complex manual preprocessing steps. It enables users to diagnose and handle missing data, validate assumptions, perform random dataset splits, conduct comprehensive reliability analyses (including Stratified Alpha), apply automated item drop-out strategies, and utilize item weighting techniques to enhance construct validity."),
+        p("The FAfA (Factor Analysis for All) Shiny application is a powerful and user-friendly tool designed to simplify Exploratory Factor Analysis (EFA), Confirmatory Factor Analysis (CFA), and Measurement Invariance workflows for researchers. Developed with R and Shiny, FAfA aims to unify these psychometric procedures within a single, intuitive interface, reducing the need for multiple software tools or complex manual preprocessing steps. It enables users to diagnose and handle missing data, validate assumptions, perform random dataset splits, conduct EFA replicability checks across two random half-samples, conduct comprehensive reliability analyses (including Stratified Alpha), apply automated item drop-out strategies, and utilize item weighting techniques to enhance construct validity."),
         br(),
 
         h5(strong("Overview")),
@@ -23,6 +23,7 @@ about_server <- function(id) {
           tags$li(strong("Unified EFA, CFA & Invariance Workflow:"), " Conduct EFA, CFA, and Measurement Invariance testing within the same environment using a seamless workflow."),
           tags$li(strong("Advanced Missing Data Handling:"), " Analyze missingness patterns, test for MCAR, and apply robust imputation methods such as MICE and missForest (Random Forest)."),
           tags$li(strong("Item Drop Out Analysis:"), " Utilize automated strategies to identify and remove problematic items, optimizing scale length and factor structure."),
+          tags$li(strong("EFA Replicability:"), " Randomly split the dataset into two half-samples, run the same EFA configuration on both samples, and compare item-level factor loadings side by side."),
           tags$li(strong("Reliability Analysis:"), " Evaluate internal consistency using Cronbach's Alpha, McDonald's Omega, Armor's Theta, and Stratified Alpha for multidimensional scales."),
           tags$li(strong("Interactive Model Builder:"), " Easily define factor structures and covariances for CFA and Measurement Invariance without manually writing complex syntax."),
           tags$li(strong("Assumption Checking & Wrangling:"), " Built-in diagnostics for multivariate normality, outliers (Mahalanobis Distance), and multicollinearity."),
@@ -99,33 +100,43 @@ about_server <- function(id) {
           tags$li(strong("Murat Dogan SAHIN:"), tags$a(href = "https://avesis.anadolu.edu.tr/mdsahin", target = "_blank", "Researcher's Profile"))
         ),
         br(),
-        p(strong("What's New in Version 1.0:")),
+        p(strong("What's New in Version 1.1:")),
         tags$ul(
-          tags$li(strong("Modern UI redesign:"),
-                  " Completely redesigned interface with a dark sidebar, Inter typography, gradient card headers, refined buttons and tables, custom scrollbars, and color-coded notifications."),
+          tags$li(strong("Performance improvements:"),
+            " Polychoric correlations cached across KMO, Bartlett, heatmap and report views (3x faster on large datasets). Assumptions results cached across descriptives, collinearity and normality. Variable summary table reduced from seven column scans to a single pass."),
+          tags$li(strong("Reliability caching:"),
+            " Reliability coefficients are cached by method, item set, and correlation type. Re-running the same calculation returns instantly."),
+          tags$li(strong("CFA Higher-Order and Bifactor builders:"),
+            " New tabs in the Model Builder for second-order and bifactor models. Bifactor builder generates orthogonality constraints automatically. Templates added for correlated, higher-order and bifactor specifications."),
+          tags$li(strong("EFA enhancements:"),
+            " Eight extraction methods (added WLS, Minimum Rank, Minimum Chi-Square, GLS); fourteen rotation methods grouped into Oblique and Orthogonal. KMO and Bartlett moved to a compact horizontal card. Heatmap supports five colour palettes including grayscale, with off-diagonal correlation summary."),
+          tags$li(strong("EFA Replicability module:"),
+            " Added random split-half EFA replication with the same correlation, extraction, factor number, and rotation options used in EFA. Item-level factor loadings are reported in a comparative table with factor congruence and primary factor agreement summaries."),
+          tags$li(strong("Factor Retention correlation choice:"),
+            " Pearson and Polychoric options added."),
+          tags$li(strong("EGA community detection:"),
+            " Six algorithms available (Walktrap, Louvain, Leiden, Fast Greedy, Edge Betweenness, Label Propagation). Results redesigned with a tabbed layout."),
+          tags$li(strong("Reliability expanded:"),
+            " Added McDonald's Omega Hierarchical and Composite Reliability with AVE (CFA-based)."),
+          tags$li(strong("Data Selection redesigned:"),
+            " New tabs for Data Preview, Variable Types, and Distributions. Per-variable summary table with Type, N_Unique, Missing, Min, Max, Mean and SD. Likert-style and continuous variables visualised separately."),
           tags$li(strong("Exclude Variables module redesigned:"),
-                  " Dual-panel checkbox layout with real-time variable counters (Total / Excluded / Active). Supports selective recovery and full reset. Bottom-right notifications report exact exclusion counts."),
-          tags$li(strong("EFA extraction methods expanded:"),
-                  " Eight extraction methods now available: Minimum Residuals, Maximum Likelihood, Principal Axis, ULS, Weighted Least Squares, Minimum Rank, Minimum Chi-Square, and Generalized Least Squares."),
-          tags$li(strong("EFA rotation methods expanded:"),
-                  " Fourteen rotation methods organized into Oblique (Oblimin, Promax, Quartimin, BiquartMin, GeominQ, BentlerQ, Simplimax, Cluster) and Orthogonal (Varimax, Quartimax, Equamax, BentlerT, GeominT, Bifactor) groups."),
-          tags$li(strong("EFA Report layout restructured:"),
-                  " KMO and Bartlett's test presented in a compact horizontal card. Factor solution (loadings, variance, phi matrix) and Correlation Heatmap unified in a tabbed card. Heatmap now reports min, max, mean, and median off-diagonal correlations."),
-          tags$li(strong("EGA community detection algorithms added:"),
-                  " Six algorithms available: Walktrap, Louvain, Leiden, Fast Greedy, Edge Betweenness, and Label Propagation. EGA results panel redesigned with a tabbed layout."),
-          tags$li(strong("Reliability Analysis expanded:"),
-                  " Added McDonald's Omega Hierarchical and Composite Reliability & AVE (CFA-based). Coefficient selection uses radio buttons for full visibility. Generic reference thresholds removed."),
-          tags$li(strong("Multicollinearity interpretation guide added:"),
-                  " VIF, Tolerance, and Condition Index thresholds shown below the collinearity table."),
-          tags$li(strong("CFA Model Builder improved:"),
-                  " 'Add Factor' renamed to 'Add to Syntax'. Validation warning shown when factor name is empty. Placeholder text clarified."),
-          tags$li(strong("CFA path diagram fixed for ordinal data:"),
-                  " Overlapping residual arrows (caused by WLSMV identification constraints fixing residuals to 1.0) are now hidden for polychoric/ordinal analyses."),
-          tags$li(strong("About page updated:"),
-                  " Instagram, ResearchGate, and Google Scholar profile links added as interactive buttons.")
+            " Dual-panel checkbox layout with real-time variable counters. Selective recovery and full reset supported."),
+          tags$li(strong("Item Drop Out / ItemRest module:"),
+            " The ItemRest package was used as a foundation and modified for FAfA. A search algorithm was added, and the optimal strategy is presented as a structured card with metric badges and fit indices instead of raw text."),
+          tags$li(strong("Imputation iteration controls:"),
+            " MICE and missForest iteration counts configurable via sliders."),
+          tags$li(strong("CFA path diagram fix for ordinal data:"),
+            " Overlapping residual arrows hidden for polychoric/WLSMV analyses (residuals fixed to 1.0 by identification constraints)."),
+          tags$li(strong("Modern UI redesign:"),
+            " Dark sidebar navigation, Inter typography, gradient card headers, refined buttons and tables, color-coded notifications. Multicollinearity interpretation thresholds (VIF, TOL, CI) shown below the collinearity table."),
+          tags$li(strong("Outlier index drift fix:"),
+            " Outlier removal snapshots the dataset and refuses if upstream data has changed since detection."),
+          tags$li(strong("About page:"),
+            " Instagram, ResearchGate, and Google Scholar profile links added as interactive buttons.")
         ),
         br(),
-        p(em("Current Version: 1.0"))
+        p(em("Current Version: 1.1"))
       )
     })
 

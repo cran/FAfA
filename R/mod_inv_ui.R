@@ -52,11 +52,31 @@ inv_ui <- function(id) {
               placeholder = "Use the builder above or type syntax here..."
             ),
             selectInput(ns("grouping_variable_select"), "Grouping Variable:", choices = ""),
+            radioButtons(
+              ns("correlation_matrix_type"),
+              "Correlation Matrix:",
+              choices = c(
+                "Pearson (continuous)" = "pea",
+                "Polychoric (ordinal)" = "poly"
+              ),
+              selected = "pea",
+              inline = TRUE
+            ),
+            selectInput(
+              ns("invariance_estimator_select"),
+              "Estimator:",
+              choices = c("Default (MLR)" = "default", "MLR", "ML", "GLS"),
+              selected = "default"
+            ),
             checkboxGroupInput(
               ns("invariance_levels_checkbox"),
               "Levels:",
               choices = c("configural", "metric", "scalar", "strict"),
               selected = c("configural", "metric")
+            ),
+            helpText(
+              class = "small text-muted",
+              "For ordinal/polychoric models, scalar invariance uses threshold constraints."
             ),
             actionButton(ns("run_invariance_button"), "Run Analysis", class = "btn-success w-100")
           )
@@ -67,8 +87,16 @@ inv_ui <- function(id) {
       card(
         card_header("Results"),
         navset_card_tab(
-          nav_panel("Fit Measures", tableOutput(ns("invariance_fit_measures_table"))),
-          nav_panel("Comparison (LRT)", tableOutput(ns("model_comparison_table")))
+          nav_panel(
+            "Fit Measures",
+            tableOutput(ns("invariance_fit_measures_table")),
+            downloadButton(ns("download_fit_measures_button"), "Download CSV", class = "btn-sm")
+          ),
+          nav_panel(
+            "Model Comparison",
+            tableOutput(ns("model_comparison_table")),
+            downloadButton(ns("download_model_comparison_button"), "Download CSV", class = "btn-sm")
+          )
         )
       )
     )

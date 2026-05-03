@@ -1,7 +1,7 @@
 Package: FAfA
 Title: Factor Analysis for All
-Version: 1.0
-Date: 2026-04-29
+Version: 1.1
+Date: 2026-04-30
 Authors@R: c(
     person("Abdullah Faruk", "KILIC", , "afarukkilic@trakya.edu.tr", role = c("aut", "cre")),
     person("Ahmet", "Caliskan", , "ahmetcaliskan1987@gmail.com", role = "aut")
@@ -24,22 +24,22 @@ Description: Provides a comprehensive Shiny-based graphical user interface
 License: MIT + file LICENSE
 URL: https://github.com/AFarukKILIC/FAfA
 BugReports: https://github.com/AFarukKILIC/FAfA/issues
-Imports: Amelia, EFA.MRFA, EFA.dimensions, EFAtools, EGAnet, ItemRest,
-        MBESS, bsicons, bslib, config, dplyr, ggcorrplot, ggplot2,
+Imports: Amelia, EFA.MRFA, EFA.dimensions, EFAtools, EGAnet, MBESS,
+        bsicons, bslib, config, dplyr, gtools, ggcorrplot, ggplot2,
         golem, grDevices, graphics, haven, lavaan, magrittr, mctest,
         mice, missForest, moments, mvnormalTest, naniar, pastecs,
-        psych, psychometric, readxl, semPlot, semTools, shiny,
-        shinycssloaders, sirt, stats, tools, utils
+        psych, psychometric, readxl, rlang, semPlot, semTools, shiny,
+        shinycssloaders, sirt, stats, tools, qgraph, utils
 Suggests: spelling, testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Encoding: UTF-8
 Language: en-US
 RoxygenNote: 7.3.3
 NeedsCompilation: no
-Packaged: 2026-04-29 21:05:48 UTC; Faruk
+Packaged: 2026-05-03 13:49:39 UTC; Faruk
 Author: Abdullah Faruk KILIC [aut, cre],
   Ahmet Caliskan [aut]
 Maintainer: Abdullah Faruk KILIC <afarukkilic@trakya.edu.tr>
 Depends: R (>= 4.1.0)
 Repository: CRAN
-Date/Publication: 2026-04-29 21:40:09 UTC
+Date/Publication: 2026-05-03 14:50:07 UTC

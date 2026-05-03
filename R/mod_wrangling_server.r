@@ -1,6 +1,6 @@
 #' Wrangling Server Modules (Modern)
 #' @import shiny
-#' @export
+#' @noRd
 #' @param id Module namespace ID.
 #' @param data Input data (reactive)
 
@@ -11,12 +11,10 @@ wrangling_server_ex_var <- function(id, data) {
     # Tracks names of currently excluded variables
     excluded_vars_rv <- reactiveVal(character(0))
 
-    # Active dataset: NULL when nothing excluded (so fallback chain in app_server works),
-    # otherwise the original data minus excluded columns.
+    # Active dataset after variable exclusion.
     data_after_exclusion_rv <- reactive({
-      excl <- excluded_vars_rv()
-      if (length(excl) == 0) return(NULL)
       req(data())
+      excl <- excluded_vars_rv()
       remaining <- setdiff(names(data()), excl)
       if (length(remaining) == 0) return(NULL)
       data()[, remaining, drop = FALSE]
@@ -156,22 +154,44 @@ wrangling_server_split <- function(id, data) {
 wrangling_server_outliers <- function(id, data) {
   moduleServer(id, function(input, output, session) {
     outlier_info_rv <- reactiveValues(table = NULL, count = NULL,
-                                      data_clean = NULL, indices = NULL)
+                                      data_clean = NULL, indices = NULL,
+                                      data_snapshot = NULL)
+
+    # invalidate stored indices when upstream data changes
+    # to prevent removing wrong rows after data was modified.
+    observeEvent(data(), {
+      outlier_info_rv$table         <- NULL
+      outlier_info_rv$count         <- NULL
+      outlier_info_rv$data_clean    <- NULL
+      outlier_info_rv$indices       <- NULL
+      outlier_info_rv$data_snapshot <- NULL
+    }, ignoreNULL = TRUE)
 
     observeEvent(input$check_outliers_button, {
       req(data())
       tryCatch({
         res <- assumptions(data(), mah_p_threshold = input$mah_p_value_threshold_input)
-        outlier_info_rv$table   <- res$Mah_significant
-        outlier_info_rv$count   <- res$n_outlier
-        outlier_info_rv$indices <- res$Mah_significant$Row_Number_In_Complete_Data
+        outlier_info_rv$table         <- res$Mah_significant
+        outlier_info_rv$count         <- res$n_outlier
+        outlier_info_rv$indices       <- res$Mah_significant$Row_Number_In_Complete_Data
+        outlier_info_rv$data_snapshot <- data()  # remember which data the indices belong to
         showNotification("Outlier check complete.", type = "message")
       }, error = function(e) showNotification(e$message, type = "error"))
     })
 
     observeEvent(input$remove_outliers_button, {
-      req(data(), outlier_info_rv$indices)
-      clean <- stats::na.omit(data())
+      req(data(), outlier_info_rv$indices, outlier_info_rv$data_snapshot)
+
+      # Refuse if the data has changed since the outlier check
+      if (!identical(data(), outlier_info_rv$data_snapshot)) {
+        showNotification(
+          "Data changed since last outlier check. Please re-run 'Find Outliers' first.",
+          type = "warning", duration = 6
+        )
+        return()
+      }
+
+      clean <- stats::na.omit(outlier_info_rv$data_snapshot)
       if (length(outlier_info_rv$indices) > 0) {
         outlier_info_rv$data_clean <- clean[-outlier_info_rv$indices, , drop = FALSE]
         showNotification("Outliers removed!", type = "message")
@@ -179,7 +199,9 @@ wrangling_server_outliers <- function(id, data) {
     })
 
     output$outliers_table     <- renderTable({ outlier_info_rv$table })
-    output$outlier_count_text <- renderText({ paste("Outliers found:", outlier_info_rv$count) })
+    output$outlier_count_text <- renderText({
+      paste("Outliers found:", outlier_info_rv$count %||% 0)
+    })
 
     output$download_data_no_outliers_button <- downloadHandler(
       filename = "data_no_outliers.csv",

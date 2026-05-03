@@ -4,7 +4,7 @@
 #' @import shiny
 #' @import bslib
 #' @importFrom bsicons bs_icon
-#' @export
+#' @noRd
 mod_missing_ui <- function(id) {
   ns <- NS(id)
   tagList(
@@ -30,8 +30,8 @@ mod_missing_ui <- function(id) {
               "Median Imputation (Simple)" = "median",
               "Amelia II (Expectation-Maximization)" = "amelia",
               "MICE (Predictive Mean Matching)" = "mice",
-              "Random Forest (Categorical / Integer)" = "missForest_cat", # YENİ
-              "Random Forest (Continuous / Decimal)" = "missForest_cont"  # YENİ
+              "Random Forest (Categorical / Integer)" = "missForest_cat", 
+              "Random Forest (Continuous / Decimal)" = "missForest_cont"  
             ),
             selected = "none"
           ),
@@ -39,6 +39,27 @@ mod_missing_ui <- function(id) {
             icon("info-circle"),
             "Note: Use 'RF (Categorical)' for Likert scales (1,2,3...) to preserve integer structure. Use 'RF (Continuous)' for decimal values."
           ),
+
+          # Iteration controls (shown only for relevant methods)
+          conditionalPanel(
+            "input.imputation_method == 'mice'", ns = ns,
+            sliderInput(
+              ns("mice_max_iter"),
+              "MICE Iterations:",
+              min = 3, max = 30, value = 5, step = 1
+            ),
+            helpText("Default 5 is usually sufficient. Higher values increase precision and runtime.")
+          ),
+          conditionalPanel(
+            "input.imputation_method == 'missForest_cat' || input.imputation_method == 'missForest_cont'", ns = ns,
+            sliderInput(
+              ns("rf_max_iter"),
+              "Random Forest Max Iterations:",
+              min = 3, max = 20, value = 5, step = 1
+            ),
+            helpText("Reduce for faster runs on large datasets. Default missForest setting is 10.")
+          ),
+
           actionButton(
             ns("apply_imputation"),
             "Apply Imputation",

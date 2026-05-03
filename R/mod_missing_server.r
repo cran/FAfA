@@ -9,7 +9,7 @@
 #' @importFrom stats na.omit median
 #' @importFrom utils write.csv
 #' @importFrom graphics image
-#' @export
+#' @noRd
 mod_missing_server <- function(id, data) {
   moduleServer(id, function(input, output, session) {
 
@@ -81,9 +81,9 @@ mod_missing_server <- function(id, data) {
       raw_df <- data()
       method <- input$imputation_method
 
-      # Uzun süren işlemler için bildirim
+      # Uzun suren islemler icin bildirim
       if(grepl("missForest", method) || method %in% c("amelia", "mice")) {
-        showNotification("Running advanced imputation... Please wait.", type = "message", duration = 5)
+        showNotification("Running advanced imputation... Please wait.", type = "message", duration = 4)
       }
 
       clean_df <- tryCatch({
@@ -109,27 +109,27 @@ mod_missing_server <- function(id, data) {
 
         } else if (method == "mice") {
           if (!requireNamespace("mice", quietly = TRUE)) stop("Package 'mice' required.")
-          mice::complete(mice::mice(raw_df, m = 1, printFlag = FALSE), 1)
+          n_iter <- as.integer(input$mice_max_iter %||% 5L)
+          mice::complete(
+            mice::mice(raw_df, m = 1, maxit = n_iter, printFlag = FALSE),
+            1
+          )
 
         } else if (method == "missForest_cont") {
-          # SÜREKLİ ATAMA (Regresyon)
+          # Continuous imputation (regression)
           if (!requireNamespace("missForest", quietly = TRUE)) stop("Package 'missForest' required.")
-          # Doğrudan nümerik olarak veriyoruz
-          missForest::missForest(raw_df, verbose = FALSE)$ximp
+          n_iter <- as.integer(input$rf_max_iter %||% 10L)
+          missForest::missForest(raw_df, maxiter = n_iter, verbose = FALSE)$ximp
 
         } else if (method == "missForest_cat") {
-          # KATEGORİK ATAMA (Sınıflandırma)
+          # Categorical imputation (classification): convert to factor first,
+          # impute, then convert back to numeric to preserve integer levels.
           if (!requireNamespace("missForest", quietly = TRUE)) stop("Package 'missForest' required.")
-
-          # Hepsini faktöre çevir ki RF sınıflandırma yapsın
-          df_factors <- raw_df
-          df_factors[] <- lapply(df_factors, as.factor)
-
-          # missForest çalıştır
-          rf_out <- missForest::missForest(df_factors, verbose = FALSE)$ximp
-
-          # Tekrar nümeriğe çevir
-          rf_out[] <- lapply(rf_out, function(x) as.numeric(as.character(x)))
+          n_iter <- as.integer(input$rf_max_iter %||% 10L)
+          df_factors    <- raw_df
+          df_factors[]  <- lapply(df_factors, as.factor)
+          rf_out        <- missForest::missForest(df_factors, maxiter = n_iter, verbose = FALSE)$ximp
+          rf_out[]      <- lapply(rf_out, function(x) as.numeric(as.character(x)))
           rf_out
 
         } else {

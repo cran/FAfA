@@ -6,7 +6,7 @@
 #' @rdname op_null_or
 #' @param x Left hand side
 #' @param y Right hand side
-#' @export
+#' @noRd
 `%||%` <- function(x, y) if (is.null(x) || length(x) == 0 || all(is.na(x))) y else x
 
 #' Clean Missing Data
@@ -21,30 +21,30 @@ clean_missing_data <- function(data, remove_na = TRUE) {
     data <- as.data.frame(data)
   }
 
-  # 1. Standartlaştırma: Farklı karakterleri NA'ya çevir
+  # 1. Standardisation: Different characters are converted to NA
   data_std_na <- as.data.frame(lapply(data, function(col_item) {
     if(is.character(col_item)) {
-      col_item[col_item %in% c("", " ", "NA", "N/A", "na", "n/a", ".", "-", "?", "missing")] <- NA
+        col_item[col_item %in% c("", " ", "NA", "N/A", "na", "n/a", ".", "-", "?", "missing")] <- NA
     } else if (is.factor(col_item)) {
-      char_col <- as.character(col_item)
-      char_col[char_col %in% c("", " ", "NA", "N/A", "na", "n/a", ".", "-", "?", "missing")] <- NA
-      col_item <- char_col
+        char_col <- as.character(col_item)
+        char_col[char_col %in% c("", " ", "NA", "N/A", "na", "n/a", ".", "-", "?", "missing")] <- NA
+        col_item <- char_col
     }
 
-    # Karışık tipler için ek kontrol
+    # Karisik tipler icin ek kontrol
     if(is.character(col_item) || is.factor(col_item)){
-      potential_na_mask <- is.na(col_item) | suppressWarnings(is.na(as.numeric(as.character(col_item))))
-      col_item[potential_na_mask & !is.na(col_item) & !(as.character(col_item) %in% c("", " "))] <- NA
+        potential_na_mask <- is.na(col_item) | suppressWarnings(is.na(as.numeric(as.character(col_item))))
+        col_item[potential_na_mask & !is.na(col_item) & !(as.character(col_item) %in% c("", " "))] <- NA
     }
     return(col_item)
   }))
 
-  # 2. Nümeriğe Çevirme
+  # 2. Numerige Cevirme
   data_numeric <- as.data.frame(lapply(data_std_na, function(col_item) {
-    suppressWarnings(as.numeric(as.character(col_item)))
+      suppressWarnings(as.numeric(as.character(col_item)))
   }))
 
-  # 3. NA Silme İşlemi (Parametreye Bağlı)
+  # 3. NA Silme Islemi (Parametreye Bagli)
   original_nrow <- nrow(data_numeric)
 
   if (remove_na) {
@@ -52,7 +52,7 @@ clean_missing_data <- function(data, remove_na = TRUE) {
     removed_rows_count <- original_nrow - nrow(cleaned_data_final)
   } else {
     cleaned_data_final <- data_numeric
-    removed_rows_count <- 0 # Silme yapılmadı
+    removed_rows_count <- 0 # Silme yapilmadi
   }
 
   return(list(
@@ -61,9 +61,7 @@ clean_missing_data <- function(data, remove_na = TRUE) {
   ))
 }
 
-# ---------------------------------------------------------------------------
 # assumptions
-# ---------------------------------------------------------------------------
 #' Calculate Statistical Assumptions
 #'
 #' Calculates descriptives, multicollinearity, Mahalanobis distance, and Mardia's tests.
@@ -107,27 +105,16 @@ assumptions <- function(x, mah_p_threshold = 0.001) { # Added mah_p_threshold ar
   if (nrow(x) > 0) { # Proceed only if data has rows
     missing_mean <- function(var) mean(var, na.rm = TRUE) # Corrected to take single var
 
-    # Use tryCatch for pastecs in case of issues with very small/odd data
-    descriptives_pastecs <- tryCatch(
-      pastecs::stat.desc(x, basic = TRUE, desc = TRUE, norm = FALSE),
-      error = function(e) {
-        warning(paste("pastecs::stat.desc failed:", e$message)); NULL
-      }
-    )
-
-    if (!is.null(descriptives_pastecs) && is.matrix(descriptives_pastecs)) {
-      if("nbr.val" %in% rownames(descriptives_pastecs)) descr[,"N"] <- descriptives_pastecs["nbr.val", ]
-      if("min" %in% rownames(descriptives_pastecs)) descr[,"Min"] <- descriptives_pastecs["min", ]
-      if("max" %in% rownames(descriptives_pastecs)) descr[,"Max"] <- descriptives_pastecs["max", ]
-      if("median" %in% rownames(descriptives_pastecs)) descr[,"Median"] <- descriptives_pastecs["median", ]
+    # Compute descriptives once on complete-case data (avoid repeated na.omit)
+    x_no_na <- stats::na.omit(x)
+    descr[, "N"]            <- nrow(x)
+    descr[, "N (missing)"]  <- colSums(is.na(x))
+    if (nrow(x_no_na) > 0) {
+      descr[, "Min"]    <- apply(x_no_na, 2, min)
+      descr[, "Max"]    <- apply(x_no_na, 2, max)
+      descr[, "Median"] <- apply(x_no_na, 2, stats::median)
     }
-
-    descr[,"N"] <- nrow(x)
-    descr[,"N (missing)"] <- colSums(apply(x, 2, is.na))
-    descr[,"Min"] <- apply(na.omit(x), 2, min)
-    descr[,"Max"] <- apply(na.omit(x), 2, max)
-    descr[,"Median"] <- apply(na.omit(x), 2, median)
-    descr[,"Mean"] <- apply(x, 2, missing_mean) # User's original
+    descr[, "Mean"] <- colMeans(x, na.rm = TRUE)
 
     # Skewness and Kurtosis from 'moments' package
     if(nrow(x) >= 1 && ncol(x) >=1){
@@ -257,9 +244,7 @@ assumptions <- function(x, mah_p_threshold = 0.001) { # Added mah_p_threshold ar
 }
 
 
-# ---------------------------------------------------------------------------
 # factor_ret
-# ---------------------------------------------------------------------------
 #' Factor Retention Methods
 #'
 #' Applies methods to suggest the number of factors to retain.
@@ -278,13 +263,13 @@ factor_ret <- function(x, method = "hull_method") {
     x <- as.data.frame(x)
   }
   if (!all(sapply(x, is.numeric))) {
-    x_numeric_cols <- sapply(x, is.numeric)
-    non_numeric_cols <- colnames(x)[!x_numeric_cols]
-    warning(paste0("DEBUG factor_ret: Non-numeric columns found and will be excluded: ", paste(non_numeric_cols, collapse=", ")))
-    x <- x[, x_numeric_cols, drop=FALSE]
-    if(ncol(x) < 2) {
-      return(data.frame(Suggested_Factors = NA, row.names = paste("Error in", method, ": Requires at least 2 numeric columns.")))
-    }
+      x_numeric_cols <- sapply(x, is.numeric)
+      non_numeric_cols <- colnames(x)[!x_numeric_cols]
+      warning(paste0("DEBUG factor_ret: Non-numeric columns found and will be excluded: ", paste(non_numeric_cols, collapse=", ")))
+      x <- x[, x_numeric_cols, drop=FALSE]
+      if(ncol(x) < 2) {
+        return(data.frame(Suggested_Factors = NA, row.names = paste("Error in", method, ": Requires at least 2 numeric columns.")))
+      }
   }
 
   x_complete <- stats::na.omit(x)
@@ -295,8 +280,8 @@ factor_ret <- function(x, method = "hull_method") {
 
   col_variances <- apply(x_complete, 2, var)
   if (any(col_variances == 0, na.rm = TRUE)) {
-    zero_var_cols <- colnames(x_complete)[col_variances == 0]
-    return(data.frame(Suggested_Factors = NA, row.names = paste("Error in", method, ": Zero variance in column(s)")))
+      zero_var_cols <- colnames(x_complete)[col_variances == 0]
+      return(data.frame(Suggested_Factors = NA, row.names = paste("Error in", method, ": Zero variance in column(s)")))
   }
 
   if (method == "pa_mrfa") {
@@ -356,7 +341,7 @@ factor_ret <- function(x, method = "hull_method") {
       data.frame(Suggested_Factors = NA, row.names = paste("Error in EK_C:", conditionMessage(e)))
     }))
   } else if (method == "comp_data_method") {
-    return(tryCatch({
+     return(tryCatch({
       cd_analysis <- EFAtools::CD(x_complete)
       data.frame(Suggested_Factors = cd_analysis$n_factors, row.names = "Comparison Data (CD)")
     }, error = function(e) {
@@ -367,9 +352,7 @@ factor_ret <- function(x, method = "hull_method") {
   }
 }
 
-# ---------------------------------------------------------------------------
 # reliability_func
-# ---------------------------------------------------------------------------
 #' Calculate Reliability Coefficients
 #'
 #' Calculates various reliability coefficients like Alpha, Omega, Theta, etc.
@@ -388,11 +371,11 @@ factor_ret <- function(x, method = "hull_method") {
 #' @noRd
 reliability_func <- function(x, method = "alpha", cor_kind = "cor", defined_structure = NULL, strata_define = NULL) {
   if (!is.data.frame(x) && !is.matrix(x)) x <- as.data.frame(x)
-  if (!all(sapply(x, is.numeric))) {
-    x_numeric_cols <- sapply(x, is.numeric)
-    warning(paste0("Non-numeric columns found and will be excluded from reliability analysis: ", paste(colnames(x)[!x_numeric_cols], collapse=", ")))
-    x <- x[, x_numeric_cols, drop=FALSE]
-    if(ncol(x) < 2) stop("At least two numeric columns required for reliability analysis.")
+    if (!all(sapply(x, is.numeric))) {
+      x_numeric_cols <- sapply(x, is.numeric)
+      warning(paste0("Non-numeric columns found and will be excluded from reliability analysis: ", paste(colnames(x)[!x_numeric_cols], collapse=", ")))
+      x <- x[, x_numeric_cols, drop=FALSE]
+      if(ncol(x) < 2) stop("At least two numeric columns required for reliability analysis.")
   }
   x_complete <- stats::na.omit(x)
   if (nrow(x_complete) < 2 || ncol(x_complete) < 2 ) {
@@ -407,18 +390,18 @@ reliability_func <- function(x, method = "alpha", cor_kind = "cor", defined_stru
       as.numeric(std_alpha_val)
     } else if (method == "omega") {
       omega_psych <- tryCatch(psych::omega(x_complete, plot=FALSE, fm="pa"), error = function(e) {
-        warning(paste("psych::omega failed:", e$message, "Trying MBESS if N > P.")); NULL
-      })
+          warning(paste("psych::omega failed:", e$message, "Trying MBESS if N > P.")); NULL
+          })
       if(!is.null(omega_psych) && "omega.tot" %in% names(omega_psych)){
-        return(omega_psych$omega.tot)
+          return(omega_psych$omega.tot)
       } else if (nrow(x_complete) > ncol(x_complete)) {
-        warning("psych::omega did not provide omega.tot, attempting MBESS::ci.reliability (requires N > P).")
-        cov_matrix <- stats::cov(x_complete)
-        omega_analysis_mbess <- MBESS::ci.reliability(S = cov_matrix, N = nrow(x_complete), type = "omega")
-        return(omega_analysis_mbess$est)
+          warning("psych::omega did not provide omega.tot, attempting MBESS::ci.reliability (requires N > P).")
+          cov_matrix <- stats::cov(x_complete)
+          omega_analysis_mbess <- MBESS::ci.reliability(S = cov_matrix, N = nrow(x_complete), type = "omega")
+          return(omega_analysis_mbess$est)
       } else {
-        warning("Omega calculation failed with psych::omega and N <= P for MBESS.")
-        return(NA_real_)
+          warning("Omega calculation failed with psych::omega and N <= P for MBESS.")
+          return(NA_real_)
       }
     } else if (method == "theta") {
       armor_theta_calc <- function(data_in, correlation_type_internal = "cor") {
@@ -426,13 +409,13 @@ reliability_func <- function(x, method = "alpha", cor_kind = "cor", defined_stru
         if (num_items < 2) return(NA_real_)
         valid_cor_types <- c("cor", "cov", "poly", "tet")
         if(!(correlation_type_internal %in% valid_cor_types)) {
-          warning(paste("Invalid correlation_type '", correlation_type_internal, "' for psych::principal. Defaulting to 'cor'."))
-          correlation_type_internal <- "cor"
+            warning(paste("Invalid correlation_type '", correlation_type_internal, "' for psych::principal. Defaulting to 'cor'."))
+            correlation_type_internal <- "cor"
         }
         pca_res <- psych::principal(data_in, nfactors = 1, rotate = "none", cor = correlation_type_internal)
         first_eigenvalue <- pca_res$Vaccounted[1, 1]
         if (is.na(first_eigenvalue) || (first_eigenvalue <= 1 && num_items > 1) || num_items <= 1) {
-          return(NA_real_)
+            return(NA_real_)
         }
         theta_val <- (num_items / (num_items - 1)) * (1 - (1 / first_eigenvalue))
         return(theta_val)
@@ -443,10 +426,19 @@ reliability_func <- function(x, method = "alpha", cor_kind = "cor", defined_stru
         stop("CFA model structure must be defined for 'structural' reliability.")
       }
       manifest_vars_rel <- unique(unlist(lavaan::lavaanify(defined_structure)$rhs[lavaan::lavaanify(defined_structure)$op == "=~"]))
-      ordered_arg_rel <- if (cor_kind == "poly" && length(manifest_vars_rel) > 0) manifest_vars_rel else FALSE
-      estimator_rel <- ifelse(any(as.logical(ordered_arg_rel)), "WLSMV", "ML")
+      is_ordinal_rel <- cor_kind == "poly" && length(manifest_vars_rel) > 0
+      ordered_arg_rel <- if (is_ordinal_rel) manifest_vars_rel else FALSE
+      estimator_rel <- if (is_ordinal_rel) "WLSMV" else "MLR"
 
-      cfa_model_fit <- lavaan::cfa(model = defined_structure, data = x_complete, ordered = ordered_arg_rel, estimator = estimator_rel, warn = FALSE)
+      cfa_model_fit <- lavaan::cfa(
+        model = defined_structure,
+        data = x_complete,
+        ordered = ordered_arg_rel,
+        estimator = estimator_rel,
+        missing = "listwise",
+        mimic = "Mplus",
+        warn = FALSE
+      )
       structural_rel_matrix <- semTools::reliability(cfa_model_fit)
       return(sprintf("%.3f", structural_rel_matrix[5, 1]))
     } else if (method == "s_alpha") {
@@ -461,7 +453,15 @@ reliability_func <- function(x, method = "alpha", cor_kind = "cor", defined_stru
       item_names_strata <- colnames(x_complete)
       strata_matrix_sirt <- data.frame(item = item_names_strata, stratum = strata_num_vector)
 
-      s_alpha_results <- sirt::stratified.cronbach.alpha(dat = x_complete, itemstrata = strata_matrix_sirt)
+      s_alpha_results <- NULL
+      invisible(utils::capture.output({
+        s_alpha_results <- suppressMessages(suppressWarnings(
+          sirt::stratified.cronbach.alpha(
+            dat = x_complete,
+            itemstrata = strata_matrix_sirt
+          )
+        ))
+      }))
       s_alpha_results$alpha.stratified[1]
     } else if (method == "omega_h") {
       omega_res <- tryCatch(
@@ -481,12 +481,17 @@ reliability_func <- function(x, method = "alpha", cor_kind = "cor", defined_stru
       manifest_vars_cr <- unique(unlist(
         lavaan::lavaanify(defined_structure)$rhs[lavaan::lavaanify(defined_structure)$op == "=~"]
       ))
-      ordered_arg_cr <- if (cor_kind == "poly" && length(manifest_vars_cr) > 0) manifest_vars_cr else FALSE
-      estimator_cr   <- ifelse(any(as.logical(ordered_arg_cr)), "WLSMV", "ML")
+      is_ordinal_cr <- cor_kind == "poly" && length(manifest_vars_cr) > 0
+      ordered_arg_cr <- if (is_ordinal_cr) manifest_vars_cr else FALSE
+      estimator_cr   <- if (is_ordinal_cr) "WLSMV" else "MLR"
 
       cfa_fit_cr <- lavaan::cfa(
         model = defined_structure, data = x_complete,
-        ordered = ordered_arg_cr, estimator = estimator_cr, warn = FALSE
+        ordered = ordered_arg_cr,
+        estimator = estimator_cr,
+        missing = "listwise",
+        mimic = "Mplus",
+        warn = FALSE
       )
       std_sol_cr  <- lavaan::standardizedSolution(cfa_fit_cr)
       load_rows   <- std_sol_cr[std_sol_cr$op == "=~", , drop = FALSE]
@@ -511,16 +516,16 @@ reliability_func <- function(x, method = "alpha", cor_kind = "cor", defined_stru
     return(NA_real_)
   })
 
-  if (is.na(result_value)) {
+  if (is.character(result_value) && length(result_value) == 1) {
+    return(result_value)
+  } else if (is.na(result_value)) {
     return("Calculation failed or N/A.")
   } else {
     return(sprintf("%.3f", as.numeric(result_value)))
   }
 }
 
-# ---------------------------------------------------------------------------
 # item_weighting
-# ---------------------------------------------------------------------------
 #' Item Weighting Function
 #'
 #' Applies a specific item weighting algorithm.
@@ -553,4 +558,29 @@ item_weighting <- function(x) {
     }
   }
   return(weighted_data)
+}
+
+#' Validate dataset for analysis
+#'
+#' Checks minimum sample size, variable count, and numeric requirement.
+#' Designed to be used inside `validate()` calls or as guard.
+#'
+#' @param data A data.frame.
+#' @param min_n Minimum required complete cases. Default 10.
+#' @param min_p Minimum required variables. Default 2.
+#' @param require_numeric If TRUE, all variables must be numeric. Default TRUE.
+#' @return NULL if OK, otherwise a character message describing the problem.
+#' @noRd
+validate_data <- function(data, min_n = 10, min_p = 2, require_numeric = TRUE) {
+  if (is.null(data))                        return("Please load a dataset first.")
+  if (!is.data.frame(data))                 return("Input must be a data frame.")
+  if (ncol(data) < min_p)
+    return(sprintf("At least %d variables required (found %d).", min_p, ncol(data)))
+  n_complete <- sum(stats::complete.cases(data))
+  if (n_complete < min_n)
+    return(sprintf("At least %d complete cases required (found %d). ",
+                   min_n, n_complete))
+  if (require_numeric && !all(sapply(data, is.numeric)))
+    return("All variables must be numeric for this analysis.")
+  NULL
 }

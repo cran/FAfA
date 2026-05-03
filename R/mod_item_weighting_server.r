@@ -1,14 +1,14 @@
 #' Item Weighting Server Module
 #' @param id Module namespace ID.
 #' @param data Input data (reactive)
-#' @export
+#' @noRd
 item_weighting_server <- function(id, data) {
   moduleServer(id, function(input, output, session) {
     weighted_data_rv <- reactiveVal()
 
     observeEvent(input$calculate_weighted_scores_button, {
       req(data())
-      # utils.R içindeki fonksiyonu kontrol et
+      # utils.R icindeki fonksiyonu kontrol et
       if (!exists("item_weighting")) {
         showNotification("Function 'item_weighting' missing.", type="error"); return()
       }

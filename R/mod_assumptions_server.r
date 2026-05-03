@@ -1,21 +1,40 @@
-#' Assumptions Server Logic (Modern)
+#' Assumptions Server Logic
 #'
 #' @param id Module namespace ID.
 #' @param data Input data (reactive).
-#' @export
+#' @noRd
 assumptions_server <- function(id, data) {
   moduleServer(id, function(input, output, session) {
     results_rv <- reactiveValues(desc = NULL, multi = NULL, norm = NULL)
 
+    # Cache assumptions() result; descriptives, collinearity, and
+    # normality all read from the same computation.
+    cached_results <- reactiveVal(NULL)
+
+    get_assumptions <- function() {
+      if (is.null(cached_results())) {
+        cached_results(assumptions(data()))
+      }
+      cached_results()
+    }
+
+    # Invalidate cache when upstream data changes
+    observeEvent(data(), {
+      cached_results(NULL)
+      results_rv$desc <- NULL
+      results_rv$multi <- NULL
+      results_rv$norm  <- NULL
+    }, ignoreNULL = TRUE)
+
     observeEvent(input$run_descriptives_button, {
       req(data())
-      res <- assumptions(data())
+      res <- get_assumptions()
       results_rv$desc <- res$descriptives
     })
 
     observeEvent(input$run_collinearity_button, {
       req(data())
-      res <- assumptions(data())
+      res <- get_assumptions()
       results_rv$multi <- res$multicollinearity
     })
 
@@ -26,10 +45,10 @@ assumptions_server <- function(id, data) {
       on.exit(removeNotification(progress_id), add = TRUE)
 
       tryCatch({
-        res            <- assumptions(data())
-        norm_df        <- res$mvn_table
+        res     <- get_assumptions()
+        norm_df <- res$mvn_table
 
-        # Format p-values for display
+        # Format p-values
         norm_df[["p-value"]] <- sapply(norm_df[["p-value"]], function(p) {
           if (is.na(p)) return(NA_character_)
           if (p < 0.001) "< .001" else as.character(round(p, 3))
@@ -41,8 +60,8 @@ assumptions_server <- function(id, data) {
       })
     })
 
-    output$descriptives_table_output          <- renderTable({ results_rv$desc  }, rownames = TRUE)
-    output$collinearity_table_output          <- renderTable({ results_rv$multi })
+    output$descriptives_table_output           <- renderTable({ results_rv$desc  }, rownames = TRUE)
+    output$collinearity_table_output           <- renderTable({ results_rv$multi })
     output$multivariate_normality_table_output <- renderTable({
       validate(need(results_rv$norm, "Click 'Run Normality Tests' to compute results."))
       results_rv$norm

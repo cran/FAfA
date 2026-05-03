@@ -35,8 +35,20 @@ reliability_ui <- function(id) {
 
           # Stratified Alpha: strata definition
           conditionalPanel("input.reliability_coefficient_select == 's_alpha'", ns = ns,
-                           textInput(ns("strata_definition_input"), "Strata (e.g., 1,1,2,2,3):",
-                                     placeholder = "Comma-separated item strata numbers...")
+                           numericInput(
+                             ns("strata_factor_count"),
+                             "Number of Factors:",
+                             value = 2,
+                             min = 1,
+                             step = 1
+                           ),
+                           helpText(
+                             "Choose the number of factors, then assign each selected item to exactly one factor."
+                           ),
+                           uiOutput(ns("strata_item_selectors")),
+                           helpText(
+                             "Tip: if Select Items above is empty, all active variables are used."
+                           )
           ),
 
           # CR & AVE: requires CFA model syntax
